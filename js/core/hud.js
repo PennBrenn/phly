@@ -6,6 +6,8 @@ const HUD = {
   killFlashTimer: 0,
   minimapZoom: 20000, // 20km radius
   chatMessages: [],
+  _lzCache: [],
+  _lzCacheTimer: 0,
   damageIndicators: { top: 0, bottom: 0, left: 0, right: 0 },
 
   init() {
@@ -409,8 +411,13 @@ const HUD = {
       }
     }
 
-    // Landing zones (green L)
-    const lzs = TerrainSystem.findLandingZones(physics.position, 15000);
+    // Landing zones (green L) - cached, update every 5s
+    this._lzCacheTimer -= 0.016;
+    if (this._lzCacheTimer <= 0) {
+      this._lzCache = TerrainSystem.findLandingZones(physics.position, 15000);
+      this._lzCacheTimer = 5;
+    }
+    const lzs = this._lzCache;
     ctx.fillStyle = '#44cc44';
     ctx.font = '8px Courier New';
     for (const lz of lzs.slice(0, 10)) {

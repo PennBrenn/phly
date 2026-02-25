@@ -285,11 +285,7 @@ const Game = {
           engineLight.color.setHex(0x4488ff);
           engineLight.intensity = 5;
         } else {
-          engineLight.color.lerpColors(
-            new THREE.Color(0xff6600),
-            new THREE.Color(0xffaa44),
-            FlightPhysics.throttle
-          );
+          engineLight.color.copy(new THREE.Color(0xff6600)).lerp(new THREE.Color(0xffaa44), FlightPhysics.throttle);
         }
       }
 

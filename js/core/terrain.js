@@ -78,6 +78,7 @@ const TerrainSystem = {
     merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     if (indices.length > 0) merged.setIndex(indices);
+    merged.computeVertexNormals();
     return merged;
   },
 

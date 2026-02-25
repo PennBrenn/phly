@@ -66,19 +66,6 @@ const MenuSystem = {
     this.currentScreen = 'game';
     document.getElementById('main-menu').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
-
-    // Add vignette and redout overlays if not present
-    if (!document.getElementById('vignette-overlay')) {
-      const v = document.createElement('div');
-      v.id = 'vignette-overlay';
-      document.body.appendChild(v);
-    }
-    if (!document.getElementById('redout-overlay')) {
-      const r = document.createElement('div');
-      r.id = 'redout-overlay';
-      document.body.appendChild(r);
-    }
-
     if (window.Game) Game.start();
   },
 

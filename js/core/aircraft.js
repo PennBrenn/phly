@@ -47,7 +47,7 @@ const AircraftBuilder = {
     const canopyGeo = new THREE.SphereGeometry(0.6, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
     const canopyMat = new THREE.MeshPhongMaterial({
       color: 0x88bbff, transparent: true, opacity: 0.4,
-      metalness: 0.1, roughness: 0.05, side: THREE.DoubleSide,
+      shininess: 100, specular: 0xaaddff, side: THREE.DoubleSide,
     });
     const canopy = new THREE.Mesh(canopyGeo, canopyMat);
     canopy.position.set(0, fuselageHeight / 2 + 0.1, fuselageLength * 0.15);

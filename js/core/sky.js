@@ -256,8 +256,7 @@ const SkySystem = {
       if (sunHeight < 0.2 && sunHeight > 0) {
         this.sunLight.color.setHex(0xff8844);
       } else if (sunHeight >= 0.2) {
-        this.sunLight.color.lerpColors(
-          new THREE.Color(0xff8844),
+        this.sunLight.color.copy(new THREE.Color(0xff8844)).lerp(
           new THREE.Color(0xffffff),
           PHLYMath.clamp((sunHeight - 0.2) / 0.3, 0, 1)
         );

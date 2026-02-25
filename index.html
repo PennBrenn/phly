@@ -84,7 +84,12 @@
     <div id="repair-cost-display"></div>
   </div>
 
+  <!-- Overlays for effects -->
+  <div id="vignette-overlay"></div>
+  <div id="redout-overlay"></div>
+
   <!-- Scripts -->
+  <script>window.onerror=function(m,s,l,c,e){console.error('[PHLY ERROR]',m,s,l);var d=document.getElementById('loading-status');if(d)d.textContent='ERROR: '+m;}</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="js/utils/noise.js"></script>
   <script src="js/utils/math.js"></script>
