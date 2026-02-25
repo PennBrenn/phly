@@ -369,17 +369,7 @@ const AIAirSystem = {
   },
 
   checkBulletHit(bullet) {
-    if (bullet.isEnemyBullet) {
-      // Enemy bullet -> check player
-      const dist = bullet.position.distanceTo(FlightPhysics.position);
-      if (dist < 8) {
-        FlightPhysics.takeDamage(bullet.damage);
-        if (window.VFXSystem) VFXSystem.hitSpark(bullet.position);
-        if (window.AudioSystem) AudioSystem.playHit();
-        return true;
-      }
-      return false;
-    }
+    if (bullet.isEnemyBullet) return false; // handled in WeaponSystem.update
 
     // Player bullet -> check enemies
     for (const enemy of this.enemies) {

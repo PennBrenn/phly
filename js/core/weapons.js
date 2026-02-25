@@ -302,13 +302,24 @@ const WeaponSystem = {
         b.line.geometry.setFromPoints(points);
       }
 
-      // Hit detection against enemies
+      // Hit detection
       let hit = false;
-      if (window.AIAirSystem) {
-        hit = AIAirSystem.checkBulletHit(b);
-      }
-      if (!hit && window.AIGroundSystem) {
-        hit = AIGroundSystem.checkBulletHit(b);
+      if (b.isEnemyBullet) {
+        // Enemy bullet -> check against player
+        const distToPlayer = b.position.distanceTo(FlightPhysics.position);
+        if (distToPlayer < 12 && !FlightPhysics.isDead) {
+          FlightPhysics.takeDamage(b.damage);
+          if (window.VFXSystem) VFXSystem.hitSpark(b.position);
+          hit = true;
+        }
+      } else {
+        // Player bullet -> check against enemies
+        if (window.AIAirSystem) {
+          hit = AIAirSystem.checkBulletHit(b);
+        }
+        if (!hit && window.AIGroundSystem) {
+          hit = AIGroundSystem.checkBulletHit(b);
+        }
       }
 
       // Terrain hit
@@ -331,9 +342,16 @@ const WeaponSystem = {
       const m = this.missiles[i];
       m.age += dt;
 
-      // Guidance
-      if (m.target && m.target.position) {
-        const toTarget = m.target.position.clone().sub(m.position);
+      // Guidance - resolve target position (handle 'player' string or enemy object)
+      let targetPos = null;
+      if (m.target === 'player') {
+        targetPos = FlightPhysics.position;
+      } else if (m.target && m.target.position && m.target.hp > 0) {
+        targetPos = m.target.position;
+      }
+
+      if (targetPos) {
+        const toTarget = targetPos.clone().sub(m.position);
         const dist = toTarget.length();
         if (dist < m.blastRadius * 2) {
           // Detonate

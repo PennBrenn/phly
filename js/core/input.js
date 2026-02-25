@@ -19,6 +19,8 @@ const InputSystem = {
   mouseY: 0,
   mouseDX: 0,
   mouseDY: 0,
+  _accumDX: 0,
+  _accumDY: 0,
   isPointerLocked: false,
 
   // Key state
@@ -94,8 +96,8 @@ const InputSystem = {
 
   _onMouseMove(e) {
     if (!this.isPointerLocked) return;
-    this.mouseDX = e.movementX * this.sensitivity * 0.002;
-    this.mouseDY = e.movementY * this.sensitivity * 0.002;
+    this._accumDX += e.movementX * this.sensitivity * 0.15;
+    this._accumDY += e.movementY * this.sensitivity * 0.15;
   },
 
   _onMouseDown(e) {
@@ -132,10 +134,19 @@ const InputSystem = {
     this.minimapZoom = false;
 
     if (this.controlScheme === 'mouse') {
-      // Mouse mode: mouse controls pitch/roll
+      // Mouse mode: accumulated mouse movement controls pitch/roll
+      this.mouseDX = this._accumDX;
+      this.mouseDY = this._accumDY;
+      this._accumDX = 0;
+      this._accumDY = 0;
+
       this.pitch = this.invertPitch ? -this.mouseDY : this.mouseDY;
       this.roll = -this.mouseDX;
+
+      // A/D for yaw in mouse mode
       this.yaw = 0;
+      if (this.keys['KeyA']) this.yaw = -1;
+      if (this.keys['KeyD']) this.yaw = 1;
 
       // Throttle with W/S or scroll
       if (this.keys['KeyW']) this.throttleDelta = 1;
@@ -185,6 +196,12 @@ const InputSystem = {
       this.throttleDelta *= 0.9;
     }
     this.keysJustPressed = {};
+
+    // Auto re-lock pointer when clicking canvas during gameplay
+    if (!this.isPointerLocked && this.keys['MouseLeft'] && window.MenuSystem && MenuSystem.isInGame()) {
+      this.requestPointerLock();
+      this.keys['MouseLeft'] = false;
+    }
   },
 
   getState() {

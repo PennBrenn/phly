@@ -117,17 +117,25 @@ const TerrainSystem = {
   },
 
   _fbmHeight(x, z) {
-    const scale = 0.0008;
-    let h = this.noise.fbm(x * scale, z * scale, 4, 2.0, 0.5);
-    // Map -1..1 to terrain heights
-    h = (h + 1) * 0.5; // 0..1
-    // Base height mapping: low plains with occasional mountains
-    if (h < 0.35) return h * 80 / 0.35; // 0-80m plains/beach
-    if (h < 0.55) return 80 + (h - 0.35) * 320 / 0.2; // 80-400m grassland
-    if (h < 0.75) return 400 + (h - 0.55) * 800 / 0.2; // 400-1200m highland
-    if (h < 0.9) return 1200 + (h - 0.75) * 1000 / 0.15; // 1200-2200m mountain
-    return 2200 + (h - 0.9) * 1800 / 0.1; // 2200-4000m peaks
+    // Large-scale biome noise (very low freq for big biome regions)
+    const biomeScale = 0.00012;
+    const biome = (this.noise.noise2D(x * biomeScale, z * biomeScale) + 1) * 0.5; // 0..1
 
+    // Detail terrain noise (higher freq for local variation)
+    const detailScale = 0.0003;
+    let h = this.noise.fbm(x * detailScale, z * detailScale, 5, 2.0, 0.5);
+    h = (h + 1) * 0.5; // 0..1
+
+    // Blend biome type with detail to get final height
+    // biome < 0.3 = ocean/coastal, 0.3-0.55 = plains, 0.55-0.75 = hills, 0.75-0.9 = mountains, 0.9+ = peaks
+    const combined = biome * 0.6 + h * 0.4;
+
+    if (combined < 0.30) return combined * 60 / 0.30; // 0-60m coastal/beach
+    if (combined < 0.50) return 60 + (combined - 0.30) * 200 / 0.20; // 60-260m plains
+    if (combined < 0.65) return 260 + (combined - 0.50) * 500 / 0.15; // 260-760m grassland/hills
+    if (combined < 0.80) return 760 + (combined - 0.65) * 700 / 0.15; // 760-1460m highland
+    if (combined < 0.92) return 1460 + (combined - 0.80) * 1000 / 0.12; // 1460-2460m mountain
+    return 2460 + (combined - 0.92) * 1500 / 0.08; // 2460-3960m peaks
   },
 
   _generateChunkHeights(cx, cz) {
@@ -157,28 +165,36 @@ const TerrainSystem = {
         const h = heights[idx];
         pos[vidx + 1] = h;
 
-        // Height-based coloring
+        // Height-based coloring (matches new biome distribution)
         let r, g, b;
-        if (h <= 0) { r = 0.04; g = 0.24; b = 0.38; }
-        else if (h < 80) {
-          const t = h / 80;
-          r = PHLYMath.lerp(0.78, 0.49, t);
-          g = PHLYMath.lerp(0.71, 0.78, t);
-          b = PHLYMath.lerp(0.37, 0.31, t);
-        } else if (h < 400) {
-          r = 0.23; g = 0.49; b = 0.27;
-        } else if (h < 1200) {
-          const t = (h - 400) / 800;
-          r = PHLYMath.lerp(0.23, 0.35, t);
-          g = PHLYMath.lerp(0.49, 0.40, t);
-          b = PHLYMath.lerp(0.27, 0.20, t);
-        } else if (h < 2200) {
-          r = 0.54; g = 0.54; b = 0.54;
+        if (h <= 0) { r = 0.04; g = 0.24; b = 0.38; } // water
+        else if (h < 60) {
+          const t = h / 60;
+          r = PHLYMath.lerp(0.78, 0.55, t); // sand → light grass
+          g = PHLYMath.lerp(0.71, 0.72, t);
+          b = PHLYMath.lerp(0.37, 0.35, t);
+        } else if (h < 260) {
+          const t = (h - 60) / 200;
+          r = PHLYMath.lerp(0.40, 0.23, t); // plains green
+          g = PHLYMath.lerp(0.60, 0.50, t);
+          b = PHLYMath.lerp(0.30, 0.22, t);
+        } else if (h < 760) {
+          r = 0.22; g = 0.48; b = 0.25; // lush grassland
+        } else if (h < 1460) {
+          const t = (h - 760) / 700;
+          r = PHLYMath.lerp(0.22, 0.38, t); // highland transition
+          g = PHLYMath.lerp(0.48, 0.40, t);
+          b = PHLYMath.lerp(0.25, 0.22, t);
+        } else if (h < 2460) {
+          const t = (h - 1460) / 1000;
+          r = PHLYMath.lerp(0.45, 0.58, t); // mountain rock
+          g = PHLYMath.lerp(0.42, 0.56, t);
+          b = PHLYMath.lerp(0.38, 0.54, t);
         } else {
-          const t = PHLYMath.clamp((h - 2200) / 800, 0, 1);
-          r = PHLYMath.lerp(0.54, 0.92, t);
-          g = PHLYMath.lerp(0.54, 0.92, t);
-          b = PHLYMath.lerp(0.54, 0.92, t);
+          const t = PHLYMath.clamp((h - 2460) / 1000, 0, 1);
+          r = PHLYMath.lerp(0.58, 0.94, t); // snow caps
+          g = PHLYMath.lerp(0.56, 0.94, t);
+          b = PHLYMath.lerp(0.54, 0.94, t);
         }
         colors[vidx] = r;
         colors[vidx + 1] = g;
@@ -303,7 +319,7 @@ const TerrainSystem = {
       const gj = Math.floor(lz / CELL_SIZE);
       if (gi >= CHUNK_GRID || gj >= CHUNK_GRID) continue;
       const h = heights[gj * CHUNK_GRID + gi];
-      if (h < 20 || h > 1800) continue; // No trees in water or on peaks
+      if (h < 30 || h > 2200) continue; // No trees in water or above treeline
       // Check slope
       const ni = Math.min(gi + 1, CHUNK_GRID - 1);
       const nj = Math.min(gj + 1, CHUNK_GRID - 1);

@@ -6,6 +6,8 @@ const FlightPhysics = {
   rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
   quaternion: new THREE.Quaternion(),
   angularVelocity: new THREE.Vector3(0, 0, 0),
+  _prevVelocity: new THREE.Vector3(0, 0, 50),
+  _smoothG: 1.0,
   throttle: 0.5,
   afterburnerActive: false,
   afterburnerFuel: 1.0,
@@ -62,7 +64,9 @@ const FlightPhysics = {
     this.afterburnerDuration = eng.abDuration;
     this.afterburnerFuel = 1.0;
 
-    this.position.set(0, 500, 0);
+    // Spawn safely above terrain
+    const spawnTerrainH = TerrainSystem.getTerrainHeight(0, 0);
+    this.position.set(0, Math.max(500, spawnTerrainH + 300), 0);
     this.velocity.set(0, 0, this.maxSpeed * 0.3);
     this.rotation.set(0, 0, 0);
     this.quaternion.setFromEuler(this.rotation);
@@ -99,10 +103,13 @@ const FlightPhysics = {
       this.afterburnerFuel = Math.min(1.0, this.afterburnerFuel + dt / (this.afterburnerDuration * 2));
     }
 
-    // Rotation input
-    const pitchInput = input.pitch * pitchRate * dt;
-    const rollInput = input.roll * rollRate * dt;
-    const yawInput = input.yaw * yawRate * dt;
+    // Rotation input - clamp to sane range
+    const clampedPitch = PHLYMath.clamp(input.pitch, -1.5, 1.5);
+    const clampedRoll = PHLYMath.clamp(input.roll, -1.5, 1.5);
+    const clampedYaw = PHLYMath.clamp(input.yaw, -1, 1);
+    const pitchInput = clampedPitch * pitchRate * dt;
+    const rollInput = clampedRoll * rollRate * dt;
+    const yawInput = clampedYaw * yawRate * dt;
 
     // Apply rotation
     const pitchQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchInput);
@@ -162,10 +169,12 @@ const FlightPhysics = {
     // Position
     this.position.addScaledVector(this.velocity, dt);
 
-    // G-load calculation
-    const centripetal = this.angularVelocity.length() * this.speed;
-    this.gLoad = 1 + centripetal / 9.81;
-    this.angularVelocity.set(pitchInput / dt, yawInput / dt, rollInput / dt);
+    // G-load calculation - based on velocity direction change, not raw input
+    const accelMag = this.velocity.clone().sub(this._prevVelocity).length() / Math.max(dt, 0.001);
+    const rawG = 1 + (accelMag / 9.81) * 0.15; // scale down significantly
+    this._smoothG = PHLYMath.lerp(this._smoothG, rawG, dt * 3); // smooth over time
+    this.gLoad = PHLYMath.clamp(this._smoothG, 0.2, 12);
+    this._prevVelocity.copy(this.velocity);
 
     // Terrain collision check
     const terrainH = TerrainSystem.getTerrainHeight(this.position.x, this.position.z);
@@ -228,11 +237,10 @@ const FlightPhysics = {
   respawn() {
     this.isDead = false;
     this.hp = Math.floor(this.maxHp * 0.5);
-    this.position.set(
-      this.position.x + PHLYMath.randRange(-2000, 2000),
-      800,
-      this.position.z + PHLYMath.randRange(-2000, 2000)
-    );
+    const rx = this.position.x + PHLYMath.randRange(-2000, 2000);
+    const rz = this.position.z + PHLYMath.randRange(-2000, 2000);
+    const terrH = TerrainSystem.getTerrainHeight(rx, rz);
+    this.position.set(rx, Math.max(800, terrH + 400), rz);
     this.velocity.set(0, 0, this.maxSpeed * 0.3);
     this.quaternion.identity();
     this.rotation.set(0, 0, 0);

@@ -356,6 +356,15 @@ const Game = {
     // Economy debt recovery
     Economy.tickDebtRecovery(dt);
 
+    // Debug mode: keep money topped up + show debug HUD
+    if (GAME_SETTINGS.debugMode === true || GAME_SETTINGS.debugMode === 'true') {
+      if (Economy.balance < 9999999) Economy.balance = 9999999;
+      this._updateDebugHUD(dt);
+    } else {
+      const debugEl = document.getElementById('debug-hud');
+      if (debugEl) debugEl.classList.remove('visible');
+    }
+
     // Render
     this.renderer.render(this.scene, this.camera);
   },
@@ -398,6 +407,40 @@ const Game = {
       SkySystem.sunLight.target.position.copy(FlightPhysics.position);
       SkySystem.sunLight.target.updateMatrixWorld();
     }
+  },
+
+  _updateDebugHUD(dt) {
+    const el = document.getElementById('debug-hud');
+    if (!el) return;
+    el.classList.add('visible');
+    const p = FlightPhysics;
+    const fps = Math.round(1 / Math.max(dt, 0.001));
+    const vel = p.velocity;
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(p.quaternion);
+    const airEnemies = AIAirSystem.enemies ? AIAirSystem.enemies.filter(e => e.hp > 0).length : 0;
+    const gndUnits = AIGroundSystem.units ? AIGroundSystem.units.filter(u => u.hp > 0).length : 0;
+    const chunks = TerrainSystem.chunks.size;
+    const bullets = WeaponSystem.bullets ? WeaponSystem.bullets.length : 0;
+    const missiles = WeaponSystem.missiles ? WeaponSystem.missiles.length : 0;
+    const vfxCount = VFXSystem.explosions ? VFXSystem.explosions.length : 0;
+    const nearest = AIAirSystem.getNearestEnemy ? AIAirSystem.getNearestEnemy(p.position) : null;
+    const nearDist = nearest ? Math.floor(nearest.distance) + 'm' : 'none';
+
+    el.textContent =
+      `DEBUG MODE  FPS: ${fps}\n` +
+      `POS  X:${p.position.x.toFixed(0)} Y:${p.position.y.toFixed(0)} Z:${p.position.z.toFixed(0)}\n` +
+      `VEL  ${vel.x.toFixed(1)} ${vel.y.toFixed(1)} ${vel.z.toFixed(1)}  |${p.speed.toFixed(1)}|m/s\n` +
+      `FWD  ${fwd.x.toFixed(2)} ${fwd.y.toFixed(2)} ${fwd.z.toFixed(2)}\n` +
+      `THR: ${(p.throttle*100).toFixed(0)}%  AB: ${p.afterburnerActive ? 'ON' : 'off'}  FUEL: ${(p.afterburnerFuel*100).toFixed(0)}%\n` +
+      `G: ${p.gLoad.toFixed(2)}  HDG: ${p.heading.toFixed(0)}°\n` +
+      `AGL: ${p.agl.toFixed(0)}m  MSL: ${p.msl.toFixed(0)}m\n` +
+      `HP: ${p.hp}/${p.maxHp}  LANDED: ${p.isLanded}  DEAD: ${p.isDead}\n` +
+      `GUN HEAT: ${(WeaponSystem.gunHeat*100).toFixed(0)}%\n` +
+      `ENEMIES: ${airEnemies} air  ${gndUnits} gnd  nearest: ${nearDist}\n` +
+      `BULLETS: ${bullets}  MISSILES: ${missiles}  VFX: ${vfxCount}\n` +
+      `CHUNKS: ${chunks}  TIME: ${this.gameTime.toFixed(0)}s\n` +
+      `MOUSE: lock=${InputSystem.isPointerLocked}  scheme=${InputSystem.controlScheme}\n` +
+      `$${Economy.balance.toLocaleString()} (DEBUG: INF)`;
   },
 
   _onResize() {

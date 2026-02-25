@@ -28,6 +28,7 @@ const SettingsUI = {
       { key: 'volumeMusic', label: 'Volume (Music)', type: 'range', min: 0, max: 1, step: 0.05 },
       { key: 'showRepairPreview', label: 'Show Repair Preview', type: 'select', options: ['true', 'false'] },
       { key: 'networkDebug', label: 'Network Debug', type: 'select', options: ['false', 'true'] },
+      { key: 'debugMode', label: '⚙ DEBUG MODE (Inf $, Stats)', type: 'select', options: ['false', 'true'] },
     ];
 
     for (const s of settings) {
@@ -138,6 +139,13 @@ const SettingsUI = {
             GAME_SETTINGS.volumeSFX,
             GAME_SETTINGS.volumeMusic
           );
+        }
+        break;
+      case 'debugMode':
+        if (val === true || val === 'true') {
+          Economy.balance = 9999999;
+          Economy.save();
+          console.log('[PHLY][Debug] Infinite money enabled');
         }
         break;
     }

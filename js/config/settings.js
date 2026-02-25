@@ -20,6 +20,7 @@ const GAME_SETTINGS = {
   volumeMusic: 0.5,
   showRepairPreview: true,
   networkDebug: false,
+  debugMode: false,
 };
 
 const CHUNK_SIZE = 2048;
