@@ -97,6 +97,7 @@ export class App {
   private multiplayerMenu!: MultiplayerMenu;
   private disconnectOverlay!: DisconnectOverlay;
   private isMultiplayer = false;
+  private playerName = 'Pilot';
 
   constructor() {
     this.settings = loadSettings();
@@ -200,13 +201,13 @@ export class App {
     // Load level manifest
     this.levels = await loadLevelManifest();
 
-    // Hangar UI
+    // Hangar UI (standalone loadout builder)
     this.hangarUI = new HangarUI(this.upgrades, this.economy, {
       onSelectPlane: (_id) => { saveUpgradeState(this.upgrades); },
       onChangeLoadout: (_lo) => { saveUpgradeState(this.upgrades); },
       onPurchasePlane: (id) => { this.buyPlane(id); },
       onPurchaseWeapon: (id) => { this.buyWeapon(id); },
-      onConfirm: () => { this.levelSelectUI.show(); },
+      onConfirm: () => { this.hangarUI.hide(); this.mainMenu.show(); },
       onBack: () => { this.mainMenu.show(); },
     });
     await this.hangarUI.preloadData();
@@ -214,7 +215,7 @@ export class App {
     // Level Select UI
     this.levelSelectUI = new LevelSelectUI(this.levels, this.progress, {
       onSelectLevel: (id) => { this.startMission(id); },
-      onBack: () => { this.hangarUI.show(); },
+      onBack: () => { this.mainMenu.show(); },
     });
 
     // Mission Complete UI
@@ -302,12 +303,13 @@ export class App {
     loadingScreen.hide();
     this.started = true;
 
-    // Main menu with cinematic flyby
+    // Main menu: Singleplayer → Level Select, Loadout → Hangar, Multiplayer → MP Menu
     this.mainMenu = new MainMenu(() => {
-      this.hangarUI.show();
+      this.levelSelectUI.show();
     });
     this.mainMenu.onSettingsClick(() => { this.settingsUI.toggle(); });
     this.mainMenu.onMultiplayerClick(() => { this.openMultiplayerMenu(); });
+    this.mainMenu.onLoadoutClick(() => { this.hangarUI.show(); });
 
     this.loop();
   }
@@ -422,7 +424,7 @@ export class App {
           planeId: this.upgrades.loadout.planeId,
           modelPath: `/models/planes/${this.upgrades.loadout.planeId}.glb`,
           weaponSlots: this.upgrades.loadout.weaponSlots.map(ws => ({ slot: ws.slot, weaponId: ws.weaponId })),
-          playerName: 'Player',
+          playerName: this.playerName,
         };
         this.peerManager.send(encode('loadout_sync', lo));
       }
@@ -493,25 +495,37 @@ export class App {
       return;
     }
 
+    // Store the username
+    this.playerName = result.username;
+
+    // Set up cancel handler (user clicks Cancel on waiting/connecting screen)
+    this.multiplayerMenu.onCancel(() => {
+      this.peerManager?.disconnect();
+      this.peerManager = null;
+      this.isMultiplayer = false;
+      this.multiplayerMenu.hide();
+      this.mainMenu.show();
+    });
+
     this.peerManager = new PeerManager({
       onHostReady: (code) => {
-        // Host: room is registered, show waiting screen with room code
+        // Host: room registered → show waiting screen with room code on screen
         this.multiplayerMenu.showHostWaiting(code);
       },
       onConnected: (remotePeerId) => {
         console.log('[MP] Peer connected:', remotePeerId);
         this.isMultiplayer = true;
-        // Both sides: hide MP menu and go to hangar for loadout selection
+        // Hide MP menu → go to level select (loadout is configured separately)
         this.multiplayerMenu.hide();
         // Send our loadout to the remote peer
         const lo: LoadoutPayload = {
           planeId: this.upgrades.loadout.planeId,
           modelPath: `/models/planes/${this.upgrades.loadout.planeId}.glb`,
           weaponSlots: this.upgrades.loadout.weaponSlots.map(ws => ({ slot: ws.slot, weaponId: ws.weaponId })),
-          playerName: 'Player',
+          playerName: this.playerName,
         };
         this.peerManager!.send(encode('loadout_sync', lo));
-        this.hangarUI.show();
+        this.levelSelectUI.show();
       },
       onMessage: (msg) => this.handleNetMessage(msg),
       onDisconnected: (_remotePeerId) => {
@@ -529,7 +543,7 @@ export class App {
     if (result.action === 'host') {
       try {
         await this.peerManager.hostRoom();
-        // onHostReady callback handles showing the waiting screen
+        // onHostReady callback shows the waiting screen with the room code
       } catch (err) {
         this.peerManager = null;
         this.multiplayerMenu.showError('Failed to create room: ' + String(err));
@@ -538,7 +552,7 @@ export class App {
       this.multiplayerMenu.showConnecting();
       try {
         await this.peerManager.joinRoom(result.code);
-        // onConnected callback handles hiding MP menu and showing hangar
+        // onConnected callback hides MP menu and shows level select
       } catch (err) {
         this.peerManager = null;
         this.multiplayerMenu.showError(String(err));
@@ -850,6 +864,7 @@ export class App {
   private onResize = (): void => {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    if (w < 1 || h < 1) return; // Guard against 0-size (causes WebGL errors)
     const pr = Math.min(window.devicePixelRatio, 2);
     this.renderer.setSize(w, h);
     this.cameraController.resize(w / h);

@@ -1,10 +1,10 @@
 export class MainMenu {
   private container: HTMLDivElement;
-  private onStart: () => void;
+  private onSingleplayer: () => void;
   private _visible = true;
 
-  constructor(onStart: () => void) {
-    this.onStart = onStart;
+  constructor(onSingleplayer: () => void) {
+    this.onSingleplayer = onSingleplayer;
     this.container = document.createElement('div');
     this.container.id = 'main-menu';
     this.container.innerHTML = `
@@ -106,21 +106,22 @@ export class MainMenu {
       <div class="mm-bg-grid"></div>
       <div class="mm-title">PHLY</div>
       <div class="mm-subtitle">Flight Combat</div>
-      <button class="mm-btn primary" id="mm-start">Play</button>
+      <button class="mm-btn primary" id="mm-singleplayer">Singleplayer</button>
       <button class="mm-btn" id="mm-multiplayer">Multiplayer</button>
+      <button class="mm-btn" id="mm-loadout">Loadout</button>
       <button class="mm-btn" id="mm-settings">Settings</button>
       <div class="mm-controls">
         WASD: Pitch/Roll &nbsp;|&nbsp; Q/E: Yaw &nbsp;|&nbsp; R/F: Throttle<br>
         Space: Seeker &nbsp;|&nbsp; Click: Fire &nbsp;|&nbsp; Shift: Afterburner<br>
         X: Chaff &nbsp;|&nbsp; 1-4: Weapons &nbsp;|&nbsp; Tab: Camera
       </div>
-      <div class="mm-version">v0.3.0</div>
+      <div class="mm-version">v0.4.0</div>
     `;
     document.body.appendChild(this.container);
 
-    this.container.querySelector('#mm-start')!.addEventListener('click', () => {
+    this.container.querySelector('#mm-singleplayer')!.addEventListener('click', () => {
       this.hide();
-      this.onStart();
+      this.onSingleplayer();
     });
   }
 
@@ -130,6 +131,13 @@ export class MainMenu {
 
   onMultiplayerClick(cb: () => void): void {
     this.container.querySelector('#mm-multiplayer')!.addEventListener('click', () => {
+      this.hide();
+      cb();
+    });
+  }
+
+  onLoadoutClick(cb: () => void): void {
+    this.container.querySelector('#mm-loadout')!.addEventListener('click', () => {
       this.hide();
       cb();
     });

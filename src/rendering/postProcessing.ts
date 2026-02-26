@@ -150,6 +150,8 @@ export class PostProcessing {
   }
 
   resize(width: number, height: number, pixelRatio: number): void {
+    // Guard against 0-size framebuffers (causes WebGL errors)
+    if (width < 1 || height < 1) return;
     this.composer.setSize(width, height);
     this.composer.setPixelRatio(pixelRatio);
     this.fxaaPass.uniforms['resolution'].value.set(
