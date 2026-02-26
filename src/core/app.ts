@@ -488,76 +488,84 @@ export class App {
 
   // ─── Multiplayer ─────────────────────────────────────────────────────────────
 
-  private async openMultiplayerMenu(): Promise<void> {
-    const result = await this.multiplayerMenu.prompt();
-    if (result.action === 'back') {
-      this.mainMenu.show();
-      return;
-    }
+  private openMultiplayerMenu(): void {
+    console.log('[MP] Opening multiplayer menu');
 
-    // Store the username
-    this.playerName = result.username;
-
-    // Set up cancel handler (user clicks Cancel on waiting/connecting screen)
-    this.multiplayerMenu.onCancel(() => {
+    const cancelAndReturn = () => {
+      console.log('[MP] Cancel / cleanup');
       this.peerManager?.disconnect();
       this.peerManager = null;
       this.isMultiplayer = false;
       this.multiplayerMenu.hide();
       this.mainMenu.show();
-    });
+    };
 
-    this.peerManager = new PeerManager({
-      onHostReady: (code) => {
-        // Host: room registered → show waiting screen with room code on screen
-        this.multiplayerMenu.showHostWaiting(code);
+    const createPeerManager = (): PeerManager => {
+      return new PeerManager({
+        onHostReady: (code) => {
+          console.log('[MP] onHostReady, code:', code);
+          this.multiplayerMenu.showHostWaiting(code);
+        },
+        onConnected: (remotePeerId) => {
+          console.log('[MP] onConnected, peer:', remotePeerId);
+          this.isMultiplayer = true;
+          this.multiplayerMenu.hide();
+          // Send our loadout to the remote peer
+          const lo: LoadoutPayload = {
+            planeId: this.upgrades.loadout.planeId,
+            modelPath: `/models/planes/${this.upgrades.loadout.planeId}.glb`,
+            weaponSlots: this.upgrades.loadout.weaponSlots.map(ws => ({ slot: ws.slot, weaponId: ws.weaponId })),
+            playerName: this.playerName,
+          };
+          this.peerManager!.send(encode('loadout_sync', lo));
+          this.levelSelectUI.show();
+        },
+        onMessage: (msg) => this.handleNetMessage(msg),
+        onDisconnected: (_remotePeerId) => {
+          console.log('[MP] Peer disconnected');
+          if (this.gameStarted && this.isMultiplayer) {
+            this.disconnectOverlay.show();
+          }
+        },
+        onError: (err) => {
+          console.error('[MP] PeerManager error:', err);
+          this.peerManager = null;
+          this.multiplayerMenu.showError('Connection error: ' + err);
+        },
+      });
+    };
+
+    this.multiplayerMenu.show({
+      onHost: (username) => {
+        console.log('[MP] Host requested, username:', username);
+        this.playerName = username;
+        // Menu already transitioned to "Connecting to server..." synchronously
+        this.peerManager = createPeerManager();
+        this.peerManager.hostRoom().catch((err) => {
+          console.error('[MP] hostRoom failed:', err);
+          this.peerManager = null;
+          this.multiplayerMenu.showError('Failed to create room: ' + String(err));
+        });
       },
-      onConnected: (remotePeerId) => {
-        console.log('[MP] Peer connected:', remotePeerId);
-        this.isMultiplayer = true;
-        // Hide MP menu → go to level select (loadout is configured separately)
-        this.multiplayerMenu.hide();
-        // Send our loadout to the remote peer
-        const lo: LoadoutPayload = {
-          planeId: this.upgrades.loadout.planeId,
-          modelPath: `/models/planes/${this.upgrades.loadout.planeId}.glb`,
-          weaponSlots: this.upgrades.loadout.weaponSlots.map(ws => ({ slot: ws.slot, weaponId: ws.weaponId })),
-          playerName: this.playerName,
-        };
-        this.peerManager!.send(encode('loadout_sync', lo));
-        this.levelSelectUI.show();
+      onJoin: (code, username) => {
+        console.log('[MP] Join requested, code:', code, 'username:', username);
+        this.playerName = username;
+        // Menu already transitioned to "Connecting to host..." synchronously
+        this.peerManager = createPeerManager();
+        this.peerManager.joinRoom(code).catch((err) => {
+          console.error('[MP] joinRoom failed:', err);
+          this.peerManager = null;
+          this.multiplayerMenu.showError('Failed to join: ' + String(err));
+        });
       },
-      onMessage: (msg) => this.handleNetMessage(msg),
-      onDisconnected: (_remotePeerId) => {
-        console.log('[MP] Peer disconnected');
-        if (this.gameStarted && this.isMultiplayer) {
-          this.disconnectOverlay.show();
-        }
+      onBack: () => {
+        console.log('[MP] Back to main menu');
+        this.mainMenu.show();
       },
-      onError: (err) => {
-        console.error('[MP] Error:', err);
-        this.multiplayerMenu.showError('Connection failed: ' + err);
+      onCancel: () => {
+        cancelAndReturn();
       },
     });
-
-    if (result.action === 'host') {
-      try {
-        await this.peerManager.hostRoom();
-        // onHostReady callback shows the waiting screen with the room code
-      } catch (err) {
-        this.peerManager = null;
-        this.multiplayerMenu.showError('Failed to create room: ' + String(err));
-      }
-    } else if (result.action === 'join') {
-      this.multiplayerMenu.showConnecting();
-      try {
-        await this.peerManager.joinRoom(result.code);
-        // onConnected callback hides MP menu and shows level select
-      } catch (err) {
-        this.peerManager = null;
-        this.multiplayerMenu.showError(String(err));
-      }
-    }
   }
 
   private handleNetMessage(msg: NetMessage): void {

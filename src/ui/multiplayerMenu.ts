@@ -1,23 +1,26 @@
 /**
  * Multiplayer Menu — Host/Join UI overlay with username + room code lobby.
+ * Uses direct callback-based approach (no promises) for bulletproof UI transitions.
  */
 
-export type MPMenuResult =
-  | { action: 'host'; username: string }
-  | { action: 'join'; code: string; username: string }
-  | { action: 'back' };
+export interface MPCallbacks {
+  onHost: (username: string) => void;
+  onJoin: (code: string, username: string) => void;
+  onBack: () => void;
+  onCancel: () => void;
+}
 
 export class MultiplayerMenu {
   private container: HTMLDivElement;
   private _visible = false;
-  private _resolve: ((r: MPMenuResult) => void) | null = null;
-  private _onCancel: (() => void) | null = null;
+  private _callbacks: MPCallbacks | null = null;
 
   constructor() {
     this.container = document.createElement('div');
     this.container.id = 'mp-menu';
     this.injectStyles();
     document.body.appendChild(this.container);
+    console.log('[MPMenu] Constructed, container appended to body');
   }
 
   private injectStyles(): void {
@@ -26,8 +29,8 @@ export class MultiplayerMenu {
     s.id = 'mp-styles';
     s.textContent = `
 #mp-menu{position:fixed;inset:0;background:rgba(5,5,18,0.92);backdrop-filter:blur(8px);
-  color:#fff;font-family:'Courier New',monospace;z-index:880;display:none;
-  flex-direction:column;align-items:center;justify-content:center;}
+  color:#fff;font-family:'Courier New',monospace;z-index:950;display:none;
+  flex-direction:column;align-items:center;justify-content:center;overflow-y:auto;}
 #mp-menu.open{display:flex;}
 .mp-title{font-size:28px;font-weight:bold;letter-spacing:6px;margin-bottom:12px;
   text-shadow:0 0 30px rgba(100,160,255,0.3);}
@@ -65,23 +68,44 @@ export class MultiplayerMenu {
 .mp-room-label{font-size:11px;letter-spacing:3px;opacity:0.4;text-align:center;text-transform:uppercase;margin-bottom:4px;}
 .mp-waiting{font-size:12px;opacity:0.4;text-align:center;margin-top:16px;animation:mp-pulse 2s ease-in-out infinite;}
 @keyframes mp-pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}
-.mp-divider{width:100%;height:1px;background:rgba(255,255,255,0.06);margin:8px 0 16px;}
     `;
     document.head.appendChild(s);
   }
 
-  /** Show menu and return a promise that resolves when user picks an action. */
-  prompt(): Promise<MPMenuResult> {
-    return new Promise((resolve) => {
-      this._resolve = resolve;
-      this._visible = true;
-      this.renderChoices();
-      this.container.classList.add('open');
+  // ─── Public API ──────────────────────────────────────────────────────────────
+
+  /** Show the multiplayer menu with host/join/back choices. */
+  show(callbacks: MPCallbacks): void {
+    console.log('[MPMenu] show() called');
+    this._callbacks = callbacks;
+    this._visible = true;
+    this.renderChoices();
+    this.container.classList.add('open');
+    console.log('[MPMenu] show() done, classList:', this.container.className);
+  }
+
+  /** Transition to "Connecting to PeerJS..." immediately (sync, no async dependency). */
+  showConnectingToBroker(): void {
+    console.log('[MPMenu] showConnectingToBroker()');
+    this._visible = true;
+    this.container.classList.add('open');
+    this.container.innerHTML = `
+      <div class="mp-title">MULTIPLAYER</div>
+      <div class="mp-subtitle">Setting Up</div>
+      <div class="mp-card">
+        <div class="mp-waiting">Connecting to server...</div>
+      </div>
+      <button class="mp-back" id="mp-cancel">Cancel</button>
+    `;
+    this.container.querySelector('#mp-cancel')!.addEventListener('click', () => {
+      console.log('[MPMenu] Cancel clicked during broker connect');
+      this._callbacks?.onCancel();
     });
   }
 
-  /** Show the "waiting for player" screen after hosting — keeps menu visible. */
+  /** Show the room code waiting screen (host got a code, waiting for client). */
   showHostWaiting(roomCode: string): void {
+    console.log('[MPMenu] showHostWaiting() code:', roomCode);
     this._visible = true;
     this.container.classList.add('open');
     this.container.innerHTML = `
@@ -95,12 +119,15 @@ export class MultiplayerMenu {
       <button class="mp-back" id="mp-cancel">Cancel</button>
     `;
     this.container.querySelector('#mp-cancel')!.addEventListener('click', () => {
-      this._onCancel?.();
+      console.log('[MPMenu] Cancel clicked during host wait');
+      this._callbacks?.onCancel();
     });
+    console.log('[MPMenu] showHostWaiting() done, classList:', this.container.className);
   }
 
-  /** Show connecting status — keeps menu visible. */
-  showConnecting(): void {
+  /** Show "Connecting to host..." (client is joining). */
+  showJoining(): void {
+    console.log('[MPMenu] showJoining()');
     this._visible = true;
     this.container.classList.add('open');
     this.container.innerHTML = `
@@ -112,39 +139,28 @@ export class MultiplayerMenu {
       <button class="mp-back" id="mp-cancel">Cancel</button>
     `;
     this.container.querySelector('#mp-cancel')!.addEventListener('click', () => {
-      this._onCancel?.();
+      console.log('[MPMenu] Cancel clicked during join');
+      this._callbacks?.onCancel();
     });
   }
 
-  /** Show an error, then return to choices. */
+  /** Show an error, then return to the choices screen. */
   showError(msg: string): void {
+    console.log('[MPMenu] showError():', msg);
     this._visible = true;
     this.container.classList.add('open');
     this.renderChoices(msg);
   }
 
-  /** Set a callback for when the user cancels from the waiting/connecting screen. */
-  onCancel(cb: () => void): void {
-    this._onCancel = cb;
-  }
-
   hide(): void {
+    console.log('[MPMenu] hide()');
     this._visible = false;
     this.container.classList.remove('open');
   }
 
   isVisible(): boolean { return this._visible; }
 
-  private close(result: MPMenuResult): void {
-    // Don't hide yet for host/join — the async flow will show waiting/connecting screens
-    if (result.action === 'back') {
-      this.hide();
-    }
-    if (this._resolve) {
-      this._resolve(result);
-      this._resolve = null;
-    }
-  }
+  // ─── Private ─────────────────────────────────────────────────────────────────
 
   private renderChoices(error?: string): void {
     const savedName = localStorage.getItem('phly-username') || '';
@@ -185,7 +201,11 @@ export class MultiplayerMenu {
     };
 
     this.container.querySelector('#mp-host')!.addEventListener('click', () => {
-      this.close({ action: 'host', username: getUsername() });
+      console.log('[MPMenu] Create Room clicked');
+      const username = getUsername();
+      // IMMEDIATELY show connecting state (sync, before any async work)
+      this.showConnectingToBroker();
+      this._callbacks?.onHost(username);
     });
 
     this.container.querySelector('#mp-join')!.addEventListener('click', () => {
@@ -193,16 +213,20 @@ export class MultiplayerMenu {
       const code = codeInput.value.trim().toUpperCase();
       if (code.length < 5) {
         const existing = this.container.querySelector('.mp-status.error');
-        if (existing) existing.textContent = 'Code must be 5 characters';
+        if (existing) { existing.textContent = 'Code must be 5 characters'; }
         else {
-          const status = document.createElement('div');
-          status.className = 'mp-status error';
-          status.textContent = 'Code must be 5 characters';
-          this.container.querySelector('#mp-join')!.after(status);
+          const el = document.createElement('div');
+          el.className = 'mp-status error';
+          el.textContent = 'Code must be 5 characters';
+          this.container.querySelector('#mp-join')!.after(el);
         }
         return;
       }
-      this.close({ action: 'join', code, username: getUsername() });
+      console.log('[MPMenu] Join Room clicked, code:', code);
+      const username = getUsername();
+      // IMMEDIATELY show joining state
+      this.showJoining();
+      this._callbacks?.onJoin(code, username);
     });
 
     this.container.querySelector('#mp-code-input')!.addEventListener('keydown', (e) => {
@@ -212,7 +236,9 @@ export class MultiplayerMenu {
     });
 
     this.container.querySelector('#mp-back')!.addEventListener('click', () => {
-      this.close({ action: 'back' });
+      console.log('[MPMenu] Back clicked');
+      this.hide();
+      this._callbacks?.onBack();
     });
   }
 }
