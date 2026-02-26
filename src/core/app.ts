@@ -494,9 +494,16 @@ export class App {
     }
 
     this.peerManager = new PeerManager({
+      onHostReady: (code) => {
+        // Host: room is registered, show waiting screen with room code
+        this.multiplayerMenu.showHostWaiting(code);
+      },
       onConnected: (remotePeerId) => {
         console.log('[MP] Peer connected:', remotePeerId);
-        // Send our loadout
+        this.isMultiplayer = true;
+        // Both sides: hide MP menu and go to hangar for loadout selection
+        this.multiplayerMenu.hide();
+        // Send our loadout to the remote peer
         const lo: LoadoutPayload = {
           planeId: this.upgrades.loadout.planeId,
           modelPath: `/models/planes/${this.upgrades.loadout.planeId}.glb`,
@@ -504,9 +511,6 @@ export class App {
           playerName: 'Player',
         };
         this.peerManager!.send(encode('loadout_sync', lo));
-        this.multiplayerMenu.hide();
-        this.isMultiplayer = true;
-        // Go to hangar for loadout selection
         this.hangarUI.show();
       },
       onMessage: (msg) => this.handleNetMessage(msg),
@@ -524,17 +528,20 @@ export class App {
 
     if (result.action === 'host') {
       try {
-        const code = await this.peerManager.hostRoom();
-        this.multiplayerMenu.showHostWaiting(code);
-      } catch {
-        this.multiplayerMenu.showError('Failed to create room');
+        await this.peerManager.hostRoom();
+        // onHostReady callback handles showing the waiting screen
+      } catch (err) {
+        this.peerManager = null;
+        this.multiplayerMenu.showError('Failed to create room: ' + String(err));
       }
     } else if (result.action === 'join') {
       this.multiplayerMenu.showConnecting();
       try {
         await this.peerManager.joinRoom(result.code);
-      } catch {
-        this.multiplayerMenu.showError('Failed to join room');
+        // onConnected callback handles hiding MP menu and showing hangar
+      } catch (err) {
+        this.peerManager = null;
+        this.multiplayerMenu.showError(String(err));
       }
     }
   }

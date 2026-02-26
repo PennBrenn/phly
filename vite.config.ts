@@ -9,5 +9,12 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    proxy: {
+      // Forward /api calls to the local API dev server (port 3001)
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
 });

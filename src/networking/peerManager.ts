@@ -1,9 +1,13 @@
 /**
- * Peer Manager — handles PeerJS WebRTC connections and room codes.
+ * Peer Manager — PeerJS WebRTC with Vercel-backed room code registry.
  *
- * Room codes use the peer ID directly (no external KV needed for local/LAN).
- * Host creates a Peer with a known ID derived from the room code.
- * Client connects to that peer ID.
+ * Flow:
+ *  Host: init PeerJS (gets random ID) → POST /api/room?action=create → get code
+ *        wait for client connection → onConnected fires
+ *  Client: POST /api/room?action=join with code → get hostPeerId → connect via PeerJS
+ *          → onConnected fires
+ *
+ * This avoids the deterministic-ID collision problem on the PeerJS broker.
  */
 
 import Peer, { type DataConnection } from 'peerjs';
@@ -13,18 +17,22 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'hos
 export type Role = 'none' | 'host' | 'client';
 
 export interface PeerCallbacks {
-  onConnected: (remotePeerId: string) => void;
+  onHostReady: (code: string) => void;    // Host only: room code is ready, show to user
+  onConnected: (remotePeerId: string) => void; // Both sides: peer-to-peer link established
   onMessage: (msg: NetMessage) => void;
   onDisconnected: (remotePeerId: string) => void;
   onError: (err: string) => void;
 }
 
-const PEER_PREFIX = 'phly-room-';
+// Detect if we're running on Vercel (production) or locally
+const API_BASE = typeof window !== 'undefined'
+  ? window.location.origin
+  : 'http://localhost:3000';
 
 export class PeerManager {
   private peer: Peer | null = null;
-  private conn: DataConnection | null = null;      // client's connection to host
-  private remoteConn: DataConnection | null = null; // host's connection from client
+  private conn: DataConnection | null = null;       // client's outbound connection
+  private remoteConn: DataConnection | null = null; // host's inbound connection
   private _state: ConnectionState = 'disconnected';
   private _role: Role = 'none';
   private _roomCode = '';
@@ -39,81 +47,136 @@ export class PeerManager {
   get roomCode(): string { return this._roomCode; }
   get isHost(): boolean { return this._role === 'host'; }
   get isClient(): boolean { return this._role === 'client'; }
-  get isConnected(): boolean { return this._state === 'connected' || this._state === 'hosting'; }
+  get isConnected(): boolean { return this._state === 'connected'; }
 
-  /** Host a room: creates a Peer with a deterministic ID from the room code. */
-  async hostRoom(): Promise<string> {
-    this._roomCode = this.generateCode();
-    const peerId = PEER_PREFIX + this._roomCode;
+  /**
+   * Host: create a PeerJS peer with a random ID, register with API, get room code.
+   * Calls onHostReady(code) immediately once registered.
+   * Calls onConnected when client joins.
+   */
+  async hostRoom(): Promise<void> {
     this._state = 'connecting';
     this._role = 'host';
 
-    return new Promise((resolve, reject) => {
-      this.peer = new Peer(peerId);
+    // Step 1: init PeerJS with a random ID (broker assigns one)
+    const peerId = await this.initPeer();
+    console.log('[Net] My peer ID:', peerId);
 
-      this.peer.on('open', () => {
-        console.log('[Net] Hosting room:', this._roomCode);
-        this._state = 'hosting';
-        resolve(this._roomCode);
+    // Step 2: register with room API → get code
+    let code: string;
+    try {
+      const resp = await fetch(`${API_BASE}/api/room?action=create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ peerId }),
       });
+      if (!resp.ok) throw new Error(`API error ${resp.status}`);
+      const data = await resp.json() as { code: string };
+      code = data.code;
+    } catch (err) {
+      this.cleanup();
+      throw new Error('Failed to register room: ' + String(err));
+    }
 
-      this.peer.on('connection', (conn) => {
-        console.log('[Net] Client connected:', conn.peer);
-        this.remoteConn = conn;
+    this._roomCode = code;
+    this._state = 'hosting';
+    console.log('[Net] Room code:', code);
+    this._callbacks.onHostReady(code);
+
+    // Step 3: wait for incoming connection
+    this.peer!.on('connection', (conn) => {
+      console.log('[Net] Client connected:', conn.peer);
+      this.remoteConn = conn;
+      this._state = 'connected';
+      this.wireConnection(conn);
+      this._callbacks.onConnected(conn.peer);
+    });
+  }
+
+  /**
+   * Client: look up host peer ID via API, connect via PeerJS.
+   * Calls onConnected when link is established.
+   */
+  async joinRoom(code: string): Promise<void> {
+    this._roomCode = code.toUpperCase();
+    this._state = 'connecting';
+    this._role = 'client';
+
+    // Step 1: look up host peer ID
+    let hostPeerId: string;
+    try {
+      const resp = await fetch(`${API_BASE}/api/room?action=join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: this._roomCode }),
+      });
+      if (!resp.ok) {
+        if (resp.status === 404) throw new Error('Room not found');
+        throw new Error(`API error ${resp.status}`);
+      }
+      const data = await resp.json() as { peerId: string };
+      hostPeerId = data.peerId;
+    } catch (err) {
+      this.cleanup();
+      throw err;
+    }
+
+    console.log('[Net] Connecting to host peer:', hostPeerId);
+
+    // Step 2: init our own peer
+    await this.initPeer();
+
+    // Step 3: connect to host
+    await new Promise<void>((resolve, reject) => {
+      const conn = this.peer!.connect(hostPeerId, { reliable: true });
+      this.conn = conn;
+
+      const timeout = setTimeout(() => {
+        reject(new Error('Connection timed out'));
+      }, 15000);
+
+      conn.on('open', () => {
+        clearTimeout(timeout);
+        console.log('[Net] Connected to host');
         this._state = 'connected';
         this.wireConnection(conn);
-        this._callbacks.onConnected(conn.peer);
+        this._callbacks.onConnected(hostPeerId);
+        resolve();
       });
 
-      this.peer.on('error', (err) => {
-        console.error('[Net] Host error:', err);
-        this._callbacks.onError(String(err));
-        reject(err);
-      });
-
-      this.peer.on('disconnected', () => {
-        if (this._state !== 'disconnected') {
-          console.warn('[Net] Peer server disconnected, attempting reconnect...');
-          this.peer?.reconnect();
-        }
+      conn.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(new Error(String(err)));
       });
     });
   }
 
-  /** Join a room by code: connects to the host's deterministic peer ID. */
-  async joinRoom(code: string): Promise<void> {
-    this._roomCode = code.toUpperCase();
-    const hostPeerId = PEER_PREFIX + this._roomCode;
-    this._state = 'connecting';
-    this._role = 'client';
-
+  /** Init PeerJS and wait for the broker to assign an ID. */
+  private initPeer(): Promise<string> {
     return new Promise((resolve, reject) => {
-      this.peer = new Peer();
+      const p = new Peer();
+      this.peer = p;
 
-      this.peer.on('open', () => {
-        console.log('[Net] Connecting to host:', hostPeerId);
-        const conn = this.peer!.connect(hostPeerId, { reliable: true });
-        this.conn = conn;
+      const timeout = setTimeout(() => {
+        reject(new Error('PeerJS broker connection timed out'));
+      }, 10000);
 
-        conn.on('open', () => {
-          console.log('[Net] Connected to host');
-          this._state = 'connected';
-          this.wireConnection(conn);
-          this._callbacks.onConnected(hostPeerId);
-          resolve();
-        });
-
-        conn.on('error', (err) => {
-          console.error('[Net] Connection error:', err);
-          this._callbacks.onError(String(err));
-          reject(err);
-        });
+      p.on('open', (id) => {
+        clearTimeout(timeout);
+        resolve(id);
       });
 
-      this.peer.on('error', (err) => {
-        console.error('[Net] Client error:', err);
+      p.on('error', (err) => {
+        clearTimeout(timeout);
         this._callbacks.onError(String(err));
         reject(err);
+      });
+
+      p.on('disconnected', () => {
+        if (this._state !== 'disconnected') {
+          console.warn('[Net] Broker disconnected, reconnecting...');
+          p.reconnect();
+        }
       });
     });
   }
@@ -139,7 +202,6 @@ export class PeerManager {
     });
   }
 
-  /** Send a raw encoded string to the remote peer. */
   send(data: string): void {
     if (this._role === 'host' && this.remoteConn?.open) {
       this.remoteConn.send(data);
@@ -148,9 +210,20 @@ export class PeerManager {
     }
   }
 
-  /** Disconnect and clean up everything. */
   disconnect(): void {
     console.log('[Net] Disconnecting');
+    if (this._roomCode && this._role === 'host') {
+      // Best-effort cleanup of room entry
+      fetch(`${API_BASE}/api/room`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: this._roomCode }),
+      }).catch(() => {});
+    }
+    this.cleanup();
+  }
+
+  private cleanup(): void {
     this.conn?.close();
     this.remoteConn?.close();
     this.peer?.destroy();
@@ -160,12 +233,5 @@ export class PeerManager {
     this._state = 'disconnected';
     this._role = 'none';
     this._roomCode = '';
-  }
-
-  private generateCode(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
-    for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
-    return code;
   }
 }
