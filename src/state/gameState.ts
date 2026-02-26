@@ -56,12 +56,12 @@ export interface GameState {
 export function createGameState(): GameState {
   return {
     player: {
-      position: { x: 0, y: 200, z: 0 },
+      position: { x: 0, y: 2500, z: 0 },
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      velocity: { x: 0, y: 0, z: -50 },
-      speed: 50,
-      altitude: 200,
-      throttle: 0.5,
+      velocity: { x: 0, y: 0, z: -90 },
+      speed: 90,
+      altitude: 2500,
+      throttle: 1,
       health: 100,
       isStalling: false,
       smoothPitch: 0,

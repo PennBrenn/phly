@@ -12,6 +12,7 @@ import {
   vec3Dot,
   lerp,
 } from '@/utils/math';
+import { getTerrainHeight } from '@/utils/terrain';
 
 // ─── Aircraft parameters (F-5E Tiger II inspired) ────────────────────────────
 const MASS = 7000;             // kg  empty+fuel
@@ -42,9 +43,9 @@ const SPEED_OF_SOUND = 340;   // m/s at sea level
 const STALL_SPEED = 55;       // m/s — below this, lift fades
 
 // Control surface max deflection rates (rad/s at max q-bar authority)
-const PITCH_RATE_MAX = 1.6;
-const YAW_RATE_MAX = 0.45;
-const ROLL_RATE_MAX = 2.8;
+const PITCH_RATE_MAX = 2.0;
+const YAW_RATE_MAX = 0.55;
+const ROLL_RATE_MAX = 2.4;
 // Control surfaces produce torque proportional to dynamic pressure.
 // REF_Q is the dynamic pressure at which deflection rates are 100%.
 const REF_Q = 0.5 * RHO * 90 * 90;   // ~90 m/s reference
@@ -52,15 +53,15 @@ const REF_Q = 0.5 * RHO * 90 * 90;   // ~90 m/s reference
 const G_LIMIT = 7.0;
 
 // How fast control surfaces physically move (smoothing toward input)
-const CONTROL_SMOOTHING = 4.5; // higher = snappier response
+const CONTROL_SMOOTHING = 7.0; // higher = snappier response
 
 // Aerodynamic coupling: velocity bleeds toward nose direction
 // (sideslip damping / weathervane effect)
 const AERO_COUPLING = 2.2;
 
-const THROTTLE_RATE = 0.5;     // throttle change per second
-const MAX_SPEED = 340;         // hard cap m/s
-const GROUND_LEVEL = 2;
+const THROTTLE_RATE = 0.8;     // throttle change per second
+const MAX_SPEED = 360;         // hard cap m/s
+const GROUND_CLEARANCE = 3;    // meters above terrain for collision
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function vec3Sub(a: Vec3, b: Vec3): Vec3 {
@@ -77,11 +78,9 @@ export function updateFlightPhysics(state: GameState): void {
   // ─── Throttle (gradual spool) ───────────────────────────────────────────
   if (input.throttleUp) {
     player.throttle = clamp(player.throttle + THROTTLE_RATE * dt, 0, 1);
-    console.log('[Physics] Throttle UP, new throttle =', player.throttle.toFixed(3));
   }
   if (input.throttleDown) {
     player.throttle = clamp(player.throttle - THROTTLE_RATE * dt, 0, 1);
-    console.log('[Physics] Throttle DOWN, new throttle =', player.throttle.toFixed(3));
   }
 
   // ─── Local axes ─────────────────────────────────────────────────────────
@@ -190,9 +189,11 @@ export function updateFlightPhysics(state: GameState): void {
   let targetRoll  = input.roll;
 
   if (input.useMouseAim) {
-    targetPitch = clamp(targetPitch + input.mouseY * 0.9, -1, 1);
-    targetRoll  = clamp(targetRoll  - input.mouseX * 1.3, -1, 1);
-    targetYaw   = clamp(targetYaw   + input.mouseX * 0.25, -1, 1);
+    // Mouse and keyboard are fully independent: keyboard input is always applied,
+    // mouse adds on top. This means A/D roll still works even when mouse is off-center.
+    targetPitch = clamp(input.pitch  - input.mouseY * 0.9,  -1, 1);
+    targetRoll  = clamp(input.roll   + input.mouseX * 1.3,  -1, 1);
+    targetYaw   = clamp(input.yaw    - input.mouseX * 0.25, -1, 1);
   }
 
   // Smooth control deflections (simulates hydraulic actuator lag)
@@ -202,8 +203,9 @@ export function updateFlightPhysics(state: GameState): void {
   player.smoothRoll  = lerp(player.smoothRoll,  targetRoll,  smoothAlpha);
 
   // Authority from dynamic pressure: controls are aerodynamic surfaces,
-  // so their effectiveness scales with qBar
-  const qAuthority = clamp(qBar / REF_Q, 0.05, 1.8);
+  // so their effectiveness scales with qBar.
+  // Floor of 0.12 so the plane is always somewhat controllable.
+  const qAuthority = clamp(qBar / REF_Q, 0.12, 1.8);
 
   // G-limit dampening: reduce pitch authority if we're near structural limit
   const gRatio = Math.abs(player.gForce) / G_LIMIT;
@@ -220,14 +222,24 @@ export function updateFlightPhysics(state: GameState): void {
   let newRot = quatMultiply(rollQ, player.rotation);
   newRot = quatMultiply(pitchQ, newRot);
   newRot = quatMultiply(yawQ,   newRot);
+
+  // Stall auto-pitch: nose drops naturally when AoA exceeds stall
+  if (absAoa > STALL_ALPHA * 1.15 && speed > 8) {
+    const stallTorque = (absAoa - STALL_ALPHA) * 0.7;
+    const stallPitchQ = quatFromAxisAngle(right, -stallTorque * dt);
+    newRot = quatMultiply(stallPitchQ, newRot);
+  }
+
   player.rotation = quatNormalize(newRot);
 
   // ─── Integrate position ─────────────────────────────────────────────────
   player.position = vec3Add(player.position, vec3Scale(player.velocity, dt));
 
-  // Ground collision
-  if (player.position.y < GROUND_LEVEL) {
-    player.position.y = GROUND_LEVEL;
+  // Ground collision — sample terrain heightmap, enforce sea level as minimum
+  const terrainH = getTerrainHeight(player.position.x, player.position.z);
+  const groundH = Math.max(terrainH, 0) + GROUND_CLEARANCE;
+  if (player.position.y < groundH) {
+    player.position.y = groundH;
     if (player.velocity.y < 0) player.velocity.y = 0;
     // Ground friction
     player.velocity.x = lerp(player.velocity.x, 0, dt * 2);

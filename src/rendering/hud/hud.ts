@@ -146,7 +146,7 @@ export class HUD {
       </div>
       <div class="hud-mode" id="hud-mode">KEYBOARD</div>
       <div class="hud-controls">
-        <span>WASD: Pitch/Roll | Q/E: Yaw | Shift/Space: Throttle | M: Mouse Aim | Tab: Camera</span>
+        <span>WASD: Pitch/Roll | Q/E: Yaw | R/F: Throttle | Tab: Camera | Esc: Settings</span>
       </div>
     `;
 

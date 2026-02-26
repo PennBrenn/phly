@@ -3,8 +3,8 @@ import type { GameState } from '@/state/gameState';
 import { lerp } from '@/utils/math';
 
 // Chase cam: offset behind and above the plane in LOCAL space
-const CHASE_BACK = 16;       // meters behind
-const CHASE_UP = 4.5;        // meters above
+const CHASE_BACK = 22;       // meters behind
+const CHASE_UP = 6;          // meters above
 // Smoothing — lower = more inertial lag (feels heavier)
 const POS_SMOOTH = 6;        // position follow speed
 const ROT_SMOOTH = 5;        // orientation follow speed
@@ -22,7 +22,7 @@ export class CameraController {
   private maxSpeedForFOV = 250;
 
   constructor(aspect: number) {
-    this.camera = new THREE.PerspectiveCamera(this.baseFOV, aspect, 0.1, 20000);
+    this.camera = new THREE.PerspectiveCamera(this.baseFOV, aspect, 2, 50000);
   }
 
   update(state: GameState, playerGroup: THREE.Group): void {

@@ -2,13 +2,10 @@ import type { GameState } from '@/state/gameState';
 
 export class InputManager {
   private keys = new Set<string>();
-  private shiftHeld = false;
   private mouseNormX = 0;
   private mouseNormY = 0;
   private mouseDown = false;
-  private useMouseAim = false;
   private cameraTogglePressed = false;
-  private mouseTogglePressed = false;
 
   constructor() {
     window.addEventListener('keydown', this.onKeyDown);
@@ -20,25 +17,11 @@ export class InputManager {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     this.keys.add(e.code);
-    if (e.key === 'Shift') {
-      this.shiftHeld = true;
-      console.log('[Input] Shift DOWN, shiftHeld =', this.shiftHeld);
-    }
 
-    // M toggle for mouse aim (fire once per press)
-    if (e.code === 'KeyM' && !this.mouseTogglePressed) {
-      this.useMouseAim = !this.useMouseAim;
-      this.mouseTogglePressed = true;
-    }
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys.delete(e.code);
-    if (e.key === 'Shift') {
-      this.shiftHeld = false;
-      console.log('[Input] Shift UP, shiftHeld =', this.shiftHeld);
-    }
-    if (e.code === 'KeyM') this.mouseTogglePressed = false;
     if (e.code === 'Tab') this.cameraTogglePressed = false;
   };
 
@@ -65,18 +48,16 @@ export class InputManager {
     if (this.keys.has('KeyQ')) input.yaw = 1;
     if (this.keys.has('KeyE')) input.yaw = -1;
 
-    // Throttle: Shift = up, Space = down
-    input.throttleUp = this.shiftHeld;
-    input.throttleDown = this.keys.has('Space');
-    if (this.shiftHeld) console.log('[Input] Throttle UP should be true');
+    // Throttle: R = up, F = down
+    input.throttleUp = this.keys.has('KeyR');
+    input.throttleDown = this.keys.has('KeyF');
 
     // Fire: left mouse button
     input.fire = this.mouseDown;
 
-    // Mouse
+    // Mouse position (useMouseAim is set by app from settings)
     input.mouseX = this.mouseNormX;
     input.mouseY = this.mouseNormY;
-    input.useMouseAim = this.useMouseAim;
 
     // Camera toggle (Tab) — fire once per press
     if (this.keys.has('Tab') && !this.cameraTogglePressed) {
