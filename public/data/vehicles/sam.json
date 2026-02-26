@@ -1,0 +1,20 @@
+{
+  "id": "sam",
+  "name": "SA-6 SAM",
+  "type": "ground",
+  "model": "/models/ground/tank.glb",
+  "modelScale": 1.0,
+  "health": 50,
+  "collisionRadius": 5,
+  "speed": 0,
+  "turnRate": 0,
+  "weaponId": "sidewinder",
+  "fireRate": 0.15,
+  "fireRange": 1500,
+  "fireCone": 0.6,
+  "missileSpeed": 220,
+  "missileDamage": 50,
+  "missileTurnRate": 2.0,
+  "missileGLimit": 25,
+  "canMove": false
+}

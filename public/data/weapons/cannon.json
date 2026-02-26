@@ -1,0 +1,13 @@
+{
+  "id": "cannon",
+  "name": "M39 Cannon",
+  "type": "gun",
+  "bulletSpeed": 800,
+  "bulletMaxAge": 2.0,
+  "fireRate": 12,
+  "damage": 8,
+  "spread": 0.005,
+  "ammo": -1,
+  "poolSize": 40,
+  "model": null
+}

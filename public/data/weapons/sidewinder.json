@@ -1,0 +1,18 @@
+{
+  "id": "sidewinder",
+  "name": "AIM-9 Sidewinder",
+  "type": "missile",
+  "speed": 250,
+  "maxAge": 8.0,
+  "turnRate": 2.5,
+  "gLimit": 30,
+  "damage": 50,
+  "lockRange": 2000,
+  "lockCone": 0.7,
+  "seekerTimeMin": 5,
+  "seekerTimeMax": 15,
+  "cooldown": 2.0,
+  "ammo": 4,
+  "poolSize": 8,
+  "model": null
+}

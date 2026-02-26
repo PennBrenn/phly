@@ -1,0 +1,27 @@
+{
+  "id": "delta",
+  "name": "F-5E Tiger II",
+  "model": "/models/planes/planes/delta.glb",
+  "mass": 7000,
+  "maxThrust": 50000,
+  "wingArea": 17.3,
+  "wingSpan": 8.1,
+  "maxSpeed": 360,
+  "stallSpeed": 55,
+  "pitchRate": 2.0,
+  "yawRate": 0.55,
+  "rollRate": 2.4,
+  "gLimit": 7.0,
+  "health": 100,
+  "collisionRadius": 6,
+  "engines": [
+    { "x": -1.2, "y": -0.1, "z": 2.5 },
+    { "x": 1.2, "y": -0.1, "z": 2.5 }
+  ],
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 2, "weaponId": "sidewinder", "hardpoint": { "x": -2.5, "y": -0.5, "z": 0 } },
+    { "slot": 3, "weaponId": "sidewinder", "hardpoint": { "x": 2.5, "y": -0.5, "z": 0 } },
+    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
+  ]
+}

@@ -1,136 +1,159 @@
 # PHLY
 
-A 3D multiplayer flight combat game built with **Three.js**, **TypeScript**, and **Vite**.
+A 3D flight combat game built with **Three.js**, **TypeScript**, and **Vite**. Features air and ground combat, data-driven configuration, difficulty scaling, and a full HUD with missile seeker mechanics.
 
 ---
 
-## Architecture Overview
+## Features
 
-PHLY uses a strict **State ↔ Simulation ↔ Rendering** separation. This decoupling is the single most important architectural decision — it ensures that multiplayer state synchronization (Step 7) can serialize and transmit game data without touching Three.js objects.
+- **Flight Physics** — Quaternion-based 6-DOF flight model with lift, drag, thrust, gravity, stall, and G-limit
+- **Air Combat** — Guns, heat-seeking missiles with G-limited homing, seeker lock-on mechanic
+- **Ground Combat** — Static and moving ground vehicles (tanks, SAMs) that follow terrain
+- **Weapon Slots** — 4 weapon slots (keys 1-4), extensible per-plane via JSON config
+- **Missile Seeker** — Hold Space to engage seeker (5-15s configurable), release to fire when locked
+- **Countermeasures** — Chaff/flare system (X key) that can break missile locks
+- **Enemy AI** — State machine (patrol → engage → fire → evade) with terrain avoidance, missile evasion, chaff deployment, and difficulty-scaled behavior
+- **Difficulty System** — Easy / Normal / Hard / Ace — affects enemy health, maneuverability, fire rate, and whether enemies fire missiles
+- **Out of Bounds** — Boundary system with warning timer and forced respawn
+- **Mission System** — JSON-based missions defining enemy spawns, terrain seed, and bounds
+- **Data-Driven Config** — All weapons, planes, and vehicles defined in JSON files for easy modding
+- **Dynamic HUD** — Crosshair follows plane forward, missile lock ring, enemy markers with distance/health, seeker progress bar, weapon slots, OOB warning, chaff counter
+- **Mouse Aim** — Flight-sim style intercept cursor with edge-of-screen camera panning
+- **Visual Effects** — Post-processing (bloom, tone mapping), camera shake, crash system, damage vignette, explosions with fragments
 
-### The Core Principle: State Owns the Truth
+---
+
+## Controls
+
+| Key | Action |
+|-----|--------|
+| **W/S** | Pitch down/up |
+| **A/D** | Roll left/right |
+| **Q/E** | Yaw left/right |
+| **R/F** | Throttle up/down |
+| **Left Mouse** | Fire selected weapon |
+| **Space** (hold) | Engage missile seeker — release to fire when locked |
+| **X** | Deploy chaff/flare |
+| **1-4** | Select weapon slot |
+| **Tab** | Toggle chase/cockpit camera |
+| **Esc** | Settings menu |
+
+---
+
+## Architecture
+
+PHLY uses a strict **State ↔ Simulation ↔ Rendering** separation:
 
 ```
-┌───────────┐      ┌──────────────┐      ┌────────────┐
-│   Input    │─────▶│  Game State   │◀────▶│ Networking  │
-│ (keyboard, │      │ (pure data)   │      │ (serialize  │
-│  mouse)    │      │               │      │  & sync)    │
-└───────────┘      └──────┬───────┘      └────────────┘
-                          │
-                   ┌──────▼───────┐
-                   │  Simulation   │
-                   │ (physics, AI, │
-                   │  combat)      │
-                   └──────┬───────┘
-                          │ reads state
-                   ┌──────▼───────┐
-                   │  Rendering    │
-                   │ (Three.js,    │
-                   │  HUD, VFX)    │
-                   └──────────────┘
+Input → Game State ← Networking
+            ↓
+       Simulation
+     (physics, AI, combat)
+            ↓
+       Rendering
+    (Three.js, HUD, VFX)
 ```
 
-- **State** (`src/state/`) — Pure TypeScript data: positions (`{x,y,z}`), rotations (`{x,y,z,w}`), health, ammo, velocities. **Zero Three.js imports.** This is what gets serialized for multiplayer.
-- **Simulation** (`src/simulation/`) — Reads and writes to State. Computes physics, AI decisions, collision results, mission logic. Also has **zero Three.js imports**.
-- **Rendering** (`src/rendering/`) — Subscribes to State each frame and maps data onto Three.js meshes, cameras, lights, and particles. This is the **only** layer that touches Three.js scene objects.
-- **Input** (`src/input/`) — Captures keyboard/mouse events and writes to the State store.
-- **Networking** (`src/networking/`) — Serializes State snapshots and sends/receives them over WebRTC. Because State is plain data, serialization is trivial.
+- **State** (`src/state/`) — Pure data, zero Three.js imports
+- **Simulation** (`src/simulation/`) — Physics, AI, combat logic — zero Three.js imports
+- **Rendering** (`src/rendering/`) — Maps state to Three.js scene objects
+- **Input** (`src/input/`) — Keyboard/mouse → state
 
-### Why This Matters for Multiplayer
+---
 
-When two players connect:
-1. The **Host** runs the full Simulation loop and owns authoritative State.
-2. Every 50ms (20Hz), the Host serializes its State and sends it to the Client.
-3. The **Client** receives State, interpolates between snapshots, and its Rendering layer draws the result.
-4. Neither side ever sends Three.js objects — only plain numbers and IDs.
+## Data Configuration
+
+All game entities are defined via JSON files in `public/data/`:
+
+```
+public/
+├── data/
+│   ├── weapons/         # cannon.json, sidewinder.json, chaff.json
+│   ├── planes/          # delta.json (stats, weapon slots, model path)
+│   └── vehicles/        # tank.json, sam.json (ground units)
+├── missions/
+│   └── mission1.json    # Enemy spawns, terrain seed, bounds, difficulty tuning
+└── models/
+    ├── planes/planes/delta.glb
+    └── ground/tank.glb
+```
+
+### Weapon JSON Example
+```json
+{
+  "id": "sidewinder",
+  "type": "missile",
+  "speed": 250,
+  "turnRate": 2.5,
+  "gLimit": 30,
+  "damage": 50,
+  "lockRange": 2000,
+  "seekerTimeMin": 5,
+  "seekerTimeMax": 15,
+  "ammo": 4
+}
+```
+
+### Plane JSON Example
+```json
+{
+  "id": "delta",
+  "maxSpeed": 360,
+  "stallSpeed": 55,
+  "health": 100,
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon" },
+    { "slot": 2, "weaponId": "sidewinder" },
+    { "slot": 3, "weaponId": "sidewinder" },
+    { "slot": 4, "weaponId": "chaff" }
+  ]
+}
+```
 
 ---
 
 ## File Structure
 
 ```
-phly/
-├── public/                  # Static assets served by Vite
-│   ├── models/              # .glb 3D models
-│   ├── textures/            # Terrain, skybox, UI textures
-│   └── audio/               # Sound effects, music
-│
-├── src/
-│   ├── main.ts              # Entry point — bootstraps the App
-│   │
-│   ├── core/                # App lifecycle, game loop, clock
-│   │   └── app.ts           # Creates scene, starts loop, owns managers
-│   │
-│   ├── state/               # Pure data store (NO Three.js imports)
-│   │   ├── gameState.ts     # Master state: players, enemies, bullets, objectives
-│   │   └── settings.ts      # User preferences (quality, controls, loadout)
-│   │
-│   ├── simulation/          # Game logic operating on state (NO Three.js imports)
-│   │   ├── physics/         # Thrust, lift, drag, gravity, stall, quaternion rotation
-│   │   ├── combat/          # Bullet/missile updates, collision detection, damage
-│   │   ├── ai/              # Enemy state machines (patrol, engage, fire)
-│   │   └── missions/        # Objective tracking, win/lose conditions, scoring
-│   │
-│   ├── rendering/           # Three.js visuals — reads from state
-│   │   ├── sceneSetup.ts    # Lights, fog, sky, terrain mesh
-│   │   ├── playerMesh.ts    # Maps player state → Three.js mesh
-│   │   ├── enemyRenderer.ts # Maps enemy state → Three.js meshes
-│   │   ├── effects.ts       # EffectComposer, bloom, SMAA, tone mapping
-│   │   ├── particles.ts     # Contrails, explosions, muzzle flash
-│   │   ├── cameras.ts       # Chase cam, cockpit cam logic
-│   │   └── hud/             # HTML/CSS overlay (speed, altitude, objectives)
-│   │
-│   ├── input/               # Keyboard & mouse capture → writes to state
-│   │   └── inputManager.ts  # Key bindings, mouse aim toggle, sensitivity
-│   │
-│   ├── networking/          # Multiplayer sync (Step 7)
-│   │   ├── peerManager.ts   # PeerJS connection, room codes via Vercel KV
-│   │   ├── syncLoop.ts      # 20Hz state broadcast & interpolation
-│   │   └── protocol.ts      # Message types, serialization format
-│   │
-│   ├── ui/                  # HTML overlay screens
-│   │   ├── mainMenu.ts      # Title screen, cinematic camera flyby
-│   │   ├── hangar.ts        # Plane/loadout selection
-│   │   ├── settings.ts      # Quality presets, controls, debug mode
-│   │   └── loading.ts       # Loading screen with progress bar
-│   │
-│   ├── levels/              # Level data & loader
-│   │   ├── levelLoader.ts   # Parses level JSON → spawns entities in state
-│   │   └── levels/          # JSON level definitions
-│   │
-│   ├── assets/              # Asset loading utilities
-│   │   └── modelLoader.ts   # GLTFLoader wrapper, flat shading, offset config
-│   │
-│   ├── utils/               # Shared helpers
-│   │   ├── math.ts          # Lerp, clamp, quaternion helpers
-│   │   └── pool.ts          # Generic object pool
-│   │
-│   └── workers/             # Web Workers for heavy computation
-│
-├── tests/                   # Unit & integration tests
-├── tools/                   # Build scripts, level editor (Step 8)
-├── models/                  # Source model files (pre-public)
-│
-├── index.html               # Vite entry HTML
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── README.md
+src/
+├── core/app.ts              # Game loop, init, system wiring
+├── state/
+│   ├── gameState.ts         # Player, input, camera, bounds
+│   └── combatState.ts       # Bullets, missiles, enemies, seeker, chaff, OOB
+├── simulation/
+│   ├── physics/
+│   │   ├── flightPhysics.ts # Flight model, crash detection
+│   │   └── oobSystem.ts     # Out of bounds tracking
+│   ├── combat/
+│   │   ├── bulletSystem.ts  # Gun firing, weapon slot integration
+│   │   ├── missileSystem.ts # Seeker, G-limited homing, chaff, enemy missiles
+│   │   └── collisionSystem.ts
+│   └── ai/enemyAI.ts       # Air + ground AI, terrain avoidance, evasion
+├── rendering/
+│   ├── cameras.ts           # Chase/cockpit cam, shake, mouse-aim edge panning
+│   ├── combatRenderer.ts    # Bullets, missiles, enemies (air + tank), explosions
+│   ├── hud/hud.ts           # Full HUD: gauges, crosshair, seeker, slots, OOB
+│   └── ...
+├── input/inputManager.ts    # Keys, mouse, weapon slots, seeker, chaff
+├── ui/settingsUI.ts         # Grouped settings: Graphics, Controls, Gameplay, Debug
+├── utils/
+│   ├── math.ts              # Vec3/Quat helpers
+│   ├── terrain.ts           # Heightmap sampling
+│   └── dataLoader.ts        # JSON config loader + cache
+└── core/settings.ts         # Persistent settings with difficulty + seeker duration
 ```
 
 ---
 
-## Roadmap
+## Difficulty Levels
 
-| Step | Description | Status |
-|------|-------------|--------|
-| 0 | Architecture & file structure | ✅ |
-| 1-2 | Core loop, flight physics, input, cameras, HUD | ⬜ |
-| 3 | Model loading, post-processing, terrain, settings, loading screen | ⬜ |
-| 4 | Combat: bullets, missiles, collision, AI, explosions | ⬜ |
-| 5-6 | Main menu, hangar, loadout, level loader, missions | ⬜ |
-| 7 | Multiplayer: PeerJS, Vercel KV rooms, 20Hz sync, interpolation | ⬜ |
-| 8 | Top-down level editor (`/builder` route) | ⬜ |
+| Setting | Easy | Normal | Hard | Ace |
+|---------|------|--------|------|-----|
+| Enemy Health | 70% | 100% | 150% | 200% |
+| Enemy Maneuverability | 60% | 100% | 130% | 160% |
+| Enemy Fire Rate | 50% | 100% | 150% | 200% |
+| Enemy Missiles | No | Yes | Yes | Yes |
+| Enemy Chaff | 0 | 2 | 4 | 6 |
 
 ---
 
@@ -148,5 +171,3 @@ npm run build      # Production build
 - **TypeScript** — Type safety
 - **Vite** — Dev server & bundler
 - **simplex-noise** — Procedural terrain generation
-- **PeerJS** — WebRTC multiplayer (Step 7)
-- **Vercel KV** — Room code persistence (Step 7)

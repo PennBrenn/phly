@@ -13,6 +13,7 @@ import {
   lerp,
 } from '@/utils/math';
 import { getTerrainHeight } from '@/utils/terrain';
+import { spawnExplosion } from '@/simulation/combat/collisionSystem';
 
 // ─── Aircraft parameters (F-5E Tiger II inspired) ────────────────────────────
 const MASS = 7000;             // kg  empty+fuel
@@ -53,20 +54,41 @@ const REF_Q = 0.5 * RHO * 90 * 90;   // ~90 m/s reference
 const G_LIMIT = 7.0;
 
 // How fast control surfaces physically move (smoothing toward input)
-const CONTROL_SMOOTHING = 7.0; // higher = snappier response
+// Lower = more fluid/gradual, higher = snappier
+const CONTROL_SMOOTHING = 4.0;
+
+// Secondary smoothing pass on angular rates to prevent jitter
+const RATE_SMOOTHING = 6.0;
 
 // Aerodynamic coupling: velocity bleeds toward nose direction
 // (sideslip damping / weathervane effect)
-const AERO_COUPLING = 2.2;
+const AERO_COUPLING = 2.5;
 
-const THROTTLE_RATE = 0.8;     // throttle change per second
-const MAX_SPEED = 360;         // hard cap m/s
+const THROTTLE_RATE = 0.6;     // throttle change per second (slower spool)
+const MAX_SPEED = 360;         // hard cap m/s (military power)
+const MAX_SPEED_AB = 420;      // hard cap m/s (afterburner)
 const GROUND_CLEARANCE = 3;    // meters above terrain for collision
+const CRASH_SPEED = 25;        // impact speed threshold (m/s) for crash
+const RESPAWN_DELAY = 3.5;     // seconds before respawn
+
+// Afterburner / WEP
+const AB_THRUST_MUL = 1.55;    // thrust multiplier when AB active
+const AB_FUEL_DRAIN = 0.08;    // fuel consumed per second (12.5s full burn)
+const AB_FUEL_REGEN = 0.04;    // fuel regen per second when off (~25s full recharge)
+const AB_MIN_FUEL = 0.05;      // minimum fuel to ignite AB
+
+// Turn-induced drag
+const TURN_DRAG_COEFF = 0.015; // extra CD per (rad/s)² of angular rate
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function vec3Sub(a: Vec3, b: Vec3): Vec3 {
   return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
 }
+
+// Smoothed angular rates (persistent across frames)
+let smoothedPitchRate = 0;
+let smoothedYawRate = 0;
+let smoothedRollRate = 0;
 
 export function updateFlightPhysics(state: GameState): void {
   const dt = state.time.delta;
@@ -74,6 +96,54 @@ export function updateFlightPhysics(state: GameState): void {
 
   const player = state.player;
   const input = state.input;
+
+  // ─── Crash / death handling ────────────────────────────────────────────
+  if (player.isDead) {
+    player.crashTimer += dt;
+    if (player.crashTimer >= RESPAWN_DELAY) {
+      // Respawn
+      player.isDead = false;
+      player.crashTimer = 0;
+      player.health = 100;
+      player.position = { x: 0, y: 2500, z: 0 };
+      player.rotation = { x: 0, y: 0, z: 0, w: 1 };
+      player.velocity = { x: 0, y: 0, z: -90 };
+      player.speed = 90;
+      player.throttle = 1;
+      player.afterburner = false;
+      player.afterburnerFuel = 1.0;
+      player.smoothPitch = 0;
+      player.smoothYaw = 0;
+      player.smoothRoll = 0;
+      smoothedPitchRate = 0;
+      smoothedYawRate = 0;
+      smoothedRollRate = 0;
+      // Reset weapon slots
+      state.combat.weaponSlots = [
+        { slot: 1, weaponId: 'cannon',    ammo: -1, cooldown: 0 },
+        { slot: 2, weaponId: 'sidewinder', ammo: 2,  cooldown: 0 },
+        { slot: 3, weaponId: 'sidewinder', ammo: 2,  cooldown: 0 },
+        { slot: 4, weaponId: 'chaff',      ammo: 12, cooldown: 0 },
+      ];
+      state.combat.selectedSlot = 1;
+      state.combat.playerMissileAmmo = 4;
+      state.combat.playerDamageFlash = 0;
+      // Reset chaff
+      state.combat.chaff.ammo = 12;
+      state.combat.chaff.cooldown = 0;
+      state.combat.chaff.activeTimer = 0;
+      // Reset seeker
+      state.combat.seeker.active = false;
+      state.combat.seeker.seekTimer = 0;
+      state.combat.seeker.lockTimer = 0;
+      state.combat.seeker.locked = false;
+      state.combat.seeker.targetId = -1;
+      // Reset OOB
+      state.combat.oob.isOOB = false;
+      state.combat.oob.oobTimer = 0;
+    }
+    return;
+  }
 
   // ─── Throttle (gradual spool) ───────────────────────────────────────────
   if (input.throttleUp) {
@@ -133,6 +203,9 @@ export function updateFlightPhysics(state: GameState): void {
     const dm = mach - MACH_CRIT;
     CD += 0.2 * dm * dm;  // wave drag
   }
+  // Turn-induced drag: tighter turns = more drag = speed bleeds
+  const angRate = Math.abs(smoothedPitchRate) + Math.abs(smoothedYawRate) + Math.abs(smoothedRollRate) * 0.3;
+  CD += TURN_DRAG_COEFF * angRate * angRate;
 
   // ─── Aerodynamic forces (Newtons) ───────────────────────────────────────
   const liftN = CL * qBar * WING_AREA;
@@ -145,9 +218,19 @@ export function updateFlightPhysics(state: GameState): void {
     ? vec3Scale(vec3Normalize(player.velocity), -dragN)
     : { x: 0, y: 0, z: 0 };
 
+  // ─── Afterburner ──────────────────────────────────────────────────────
+  if (input.afterburnerToggle && player.afterburnerFuel > AB_MIN_FUEL && player.throttle > 0.9) {
+    player.afterburner = true;
+    player.afterburnerFuel = Math.max(0, player.afterburnerFuel - AB_FUEL_DRAIN * dt);
+    if (player.afterburnerFuel <= 0) player.afterburner = false;
+  } else {
+    player.afterburner = false;
+    player.afterburnerFuel = Math.min(1, player.afterburnerFuel + AB_FUEL_REGEN * dt);
+  }
+
   // ─── Thrust ─────────────────────────────────────────────────────────────
-  // Mild afterburner curve (slightly more than linear)
-  const thrustN = MAX_THRUST_N * (0.6 * player.throttle + 0.4 * player.throttle * player.throttle);
+  const abMul = player.afterburner ? AB_THRUST_MUL : 1.0;
+  const thrustN = MAX_THRUST_N * abMul * (0.6 * player.throttle + 0.4 * player.throttle * player.throttle);
   const thrustForce = vec3Scale(fwd, thrustN);
 
   // ─── Gravity ────────────────────────────────────────────────────────────
@@ -176,10 +259,11 @@ export function updateFlightPhysics(state: GameState): void {
   const accelNoGrav = vec3Scale(totalForce, 1 / MASS);
   player.gForce = 1 + vec3Dot(accelNoGrav, upDir) / GRAVITY;
 
-  // Clamp max speed
+  // Clamp max speed (higher cap with afterburner)
+  const speedCap = player.afterburner ? MAX_SPEED_AB : MAX_SPEED;
   const newSpeed = vec3Length(player.velocity);
-  if (newSpeed > MAX_SPEED) {
-    player.velocity = vec3Scale(vec3Normalize(player.velocity), MAX_SPEED);
+  if (newSpeed > speedCap) {
+    player.velocity = vec3Scale(vec3Normalize(player.velocity), speedCap);
   }
 
   // ─── Control surfaces (gradual, speed-dependent) ────────────────────────
@@ -211,13 +295,19 @@ export function updateFlightPhysics(state: GameState): void {
   const gRatio = Math.abs(player.gForce) / G_LIMIT;
   const gDampen = gRatio > 0.8 ? clamp(1 - (gRatio - 0.8) * 5, 0.1, 1) : 1;
 
-  const pitchRate = player.smoothPitch * PITCH_RATE_MAX * qAuthority * gDampen;
-  const yawRate   = player.smoothYaw   * YAW_RATE_MAX   * qAuthority;
-  const rollRate  = player.smoothRoll  * ROLL_RATE_MAX  * qAuthority;
+  const rawPitchRate = player.smoothPitch * PITCH_RATE_MAX * qAuthority * gDampen;
+  const rawYawRate   = player.smoothYaw   * YAW_RATE_MAX   * qAuthority;
+  const rawRollRate  = player.smoothRoll  * ROLL_RATE_MAX  * qAuthority;
 
-  const pitchQ = quatFromAxisAngle(right, pitchRate * dt);
-  const yawQ   = quatFromAxisAngle(upDir, yawRate   * dt);
-  const rollQ  = quatFromAxisAngle(fwd,   rollRate  * dt);
+  // Second smoothing pass on angular rates — prevents jittery rotation
+  const rateAlpha = Math.min(RATE_SMOOTHING * dt, 1);
+  smoothedPitchRate = lerp(smoothedPitchRate, rawPitchRate, rateAlpha);
+  smoothedYawRate   = lerp(smoothedYawRate,   rawYawRate,   rateAlpha);
+  smoothedRollRate  = lerp(smoothedRollRate,  rawRollRate,  rateAlpha);
+
+  const pitchQ = quatFromAxisAngle(right, smoothedPitchRate * dt);
+  const yawQ   = quatFromAxisAngle(upDir, smoothedYawRate   * dt);
+  const rollQ  = quatFromAxisAngle(fwd,   smoothedRollRate  * dt);
 
   let newRot = quatMultiply(rollQ, player.rotation);
   newRot = quatMultiply(pitchQ, newRot);
@@ -239,11 +329,47 @@ export function updateFlightPhysics(state: GameState): void {
   const terrainH = getTerrainHeight(player.position.x, player.position.z);
   const groundH = Math.max(terrainH, 0) + GROUND_CLEARANCE;
   if (player.position.y < groundH) {
+    // Check if impact is hard enough to crash
+    const impactSpeed = Math.abs(player.velocity.y);
+    const totalSpeed = vec3Length(player.velocity);
+    if (impactSpeed > CRASH_SPEED || totalSpeed > CRASH_SPEED * 2) {
+      // CRASH!
+      player.isDead = true;
+      player.crashTimer = 0;
+      player.health = 0;
+      player.velocity = { x: 0, y: 0, z: 0 };
+      player.position.y = groundH;
+      state.combat.playerDamageFlash = 1.0;
+      // Spawn explosion at crash site
+      spawnExplosion(
+        state.combat.explosions,
+        player.position.x,
+        player.position.y,
+        player.position.z,
+      );
+      return;
+    }
+    // Soft landing — just clamp
     player.position.y = groundH;
     if (player.velocity.y < 0) player.velocity.y = 0;
     // Ground friction
     player.velocity.x = lerp(player.velocity.x, 0, dt * 2);
     player.velocity.z = lerp(player.velocity.z, 0, dt * 2);
+  }
+
+  // Also crash if health reaches 0 (shot down)
+  if (player.health <= 0) {
+    player.isDead = true;
+    player.crashTimer = 0;
+    player.health = 0;
+    state.combat.playerDamageFlash = 1.0;
+    spawnExplosion(
+      state.combat.explosions,
+      player.position.x,
+      player.position.y,
+      player.position.z,
+    );
+    return;
   }
 
   player.altitude = player.position.y;

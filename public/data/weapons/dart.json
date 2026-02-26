@@ -1,0 +1,18 @@
+{
+  "id": "dart",
+  "name": "R-60 Dart",
+  "type": "missile",
+  "speed": 300,
+  "maxAge": 6.0,
+  "turnRate": 3.2,
+  "gLimit": 35,
+  "damage": 40,
+  "lockRange": 1500,
+  "lockCone": 0.75,
+  "seekerTimeMin": 3,
+  "seekerTimeMax": 10,
+  "cooldown": 1.5,
+  "ammo": 4,
+  "poolSize": 6,
+  "model": null
+}

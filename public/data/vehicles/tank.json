@@ -1,0 +1,18 @@
+{
+  "id": "tank",
+  "name": "T-72 MBT",
+  "type": "ground",
+  "model": "/models/ground/tank.glb",
+  "modelScale": 1.0,
+  "health": 80,
+  "collisionRadius": 6,
+  "speed": 8,
+  "turnRate": 0.5,
+  "weaponId": "cannon",
+  "fireRate": 1.5,
+  "fireRange": 800,
+  "fireCone": 0.85,
+  "bulletSpeed": 600,
+  "bulletDamage": 12,
+  "canMove": true
+}

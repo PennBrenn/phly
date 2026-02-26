@@ -2,16 +2,25 @@ const STORAGE_KEY = 'phly-settings';
 
 export type QualityPreset = 'low' | 'medium' | 'high';
 
+export type DifficultyLevel = 'easy' | 'normal' | 'hard' | 'ace';
+
 export interface Settings {
+  // Graphics
   quality: QualityPreset;
   shadows: boolean;
   bloom: boolean;
   fogDensity: number;
+  treeDensity: number;
+  showFPS: boolean;
+  // Controls
   mouseSensitivity: number;
   useMouseAim: boolean;
-  treeDensity: number;
+  invertY: boolean;
+  // Gameplay
+  difficulty: DifficultyLevel;
+  seekerDuration: number; // seconds to lock (5-15)
+  // Debug
   debugMode: boolean;
-  // Model debug offsets
   modelOffsetX: number;
   modelOffsetY: number;
   modelOffsetZ: number;
@@ -44,9 +53,13 @@ function defaultSettings(): Settings {
     shadows: true,
     bloom: true,
     fogDensity: 0.000025,
+    treeDensity: 0.7,
+    showFPS: false,
     mouseSensitivity: 1.0,
     useMouseAim: false,
-    treeDensity: 0.7,
+    invertY: false,
+    difficulty: 'normal',
+    seekerDuration: 8,
     debugMode: false,
     modelOffsetX: 0,
     modelOffsetY: 0,

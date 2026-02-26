@@ -1,0 +1,25 @@
+{
+  "id": "mig",
+  "name": "MiG-21 Fishbed",
+  "model": "/models/enemy/mig.glb",
+  "mass": 5800,
+  "maxThrust": 42000,
+  "wingArea": 23.0,
+  "wingSpan": 7.2,
+  "maxSpeed": 380,
+  "stallSpeed": 60,
+  "pitchRate": 2.2,
+  "yawRate": 0.5,
+  "rollRate": 2.8,
+  "gLimit": 7.5,
+  "health": 80,
+  "collisionRadius": 5,
+  "engines": [
+    { "x": 0, "y": -0.1, "z": 2.8 }
+  ],
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.2, "z": -2.5 } },
+    { "slot": 2, "weaponId": "sidewinder", "hardpoint": { "x": -2.0, "y": -0.4, "z": 0.5 } },
+    { "slot": 3, "weaponId": "sidewinder", "hardpoint": { "x": 2.0, "y": -0.4, "z": 0.5 } }
+  ]
+}

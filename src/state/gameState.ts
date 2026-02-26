@@ -1,3 +1,5 @@
+import { type CombatState, createCombatState } from '@/state/combatState';
+
 export interface Vec3 {
   x: number;
   y: number;
@@ -25,6 +27,11 @@ export interface PlayerState {
   smoothYaw: number;
   smoothRoll: number;
   gForce: number;
+  isDead: boolean;
+  crashTimer: number;
+  // Afterburner / WEP
+  afterburner: boolean;   // currently in afterburner
+  afterburnerFuel: number; // 0-1 remaining fuel
 }
 
 export interface InputState {
@@ -33,7 +40,12 @@ export interface InputState {
   roll: number;
   throttleUp: boolean;
   throttleDown: boolean;
-  fire: boolean;
+  fire: boolean;            // left mouse / selected weapon fire
+  fireMissile: boolean;     // legacy (now fires selected slot weapon)
+  seekerEngage: boolean;    // space = toggle seeker
+  deployCountermeasure: boolean; // X key = chaff/flare
+  afterburnerToggle: boolean;  // shift = afterburner
+  selectSlot: number;       // 0 = no change, 1-5 = slot selection
   mouseX: number;
   mouseY: number;
   useMouseAim: boolean;
@@ -43,10 +55,21 @@ export interface CameraState {
   mode: 'chase' | 'cockpit';
 }
 
+export interface MissionBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  ceiling: number;
+  warningMargin: number;
+}
+
 export interface GameState {
   player: PlayerState;
   input: InputState;
   camera: CameraState;
+  combat: CombatState;
+  bounds: MissionBounds;
   time: {
     delta: number;
     elapsed: number;
@@ -68,6 +91,10 @@ export function createGameState(): GameState {
       smoothYaw: 0,
       smoothRoll: 0,
       gForce: 1,
+      isDead: false,
+      crashTimer: 0,
+      afterburner: false,
+      afterburnerFuel: 1.0,
     },
     input: {
       pitch: 0,
@@ -76,9 +103,23 @@ export function createGameState(): GameState {
       throttleUp: false,
       throttleDown: false,
       fire: false,
+      fireMissile: false,
+      seekerEngage: false,
+      deployCountermeasure: false,
+      afterburnerToggle: false,
+      selectSlot: 0,
       mouseX: 0,
       mouseY: 0,
       useMouseAim: false,
+    },
+    combat: createCombatState(),
+    bounds: {
+      minX: -8000,
+      maxX: 8000,
+      minZ: -8000,
+      maxZ: 8000,
+      ceiling: 6000,
+      warningMargin: 500,
     },
     camera: {
       mode: 'chase',

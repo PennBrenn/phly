@@ -32,6 +32,34 @@ export function vec3Dot(a: Vec3, b: Vec3): number {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
+export function vec3Sub(a: Vec3, b: Vec3): Vec3 {
+  return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+}
+
+export function vec3DistSq(a: Vec3, b: Vec3): number {
+  const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+  return dx * dx + dy * dy + dz * dz;
+}
+
+export function vec3LerpV(a: Vec3, b: Vec3, t: number): Vec3 {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t };
+}
+
+export function quatSlerp(a: Quat, b: Quat, t: number): Quat {
+  let bx = b.x, by = b.y, bz = b.z, bw = b.w;
+  let cosHalf = a.x * bx + a.y * by + a.z * bz + a.w * bw;
+  if (cosHalf < 0) { bx = -bx; by = -by; bz = -bz; bw = -bw; cosHalf = -cosHalf; }
+  if (cosHalf >= 1.0) return { x: a.x, y: a.y, z: a.z, w: a.w };
+  const sinHalf = Math.sqrt(1 - cosHalf * cosHalf);
+  if (sinHalf < 0.001) {
+    return { x: a.x * 0.5 + bx * 0.5, y: a.y * 0.5 + by * 0.5, z: a.z * 0.5 + bz * 0.5, w: a.w * 0.5 + bw * 0.5 };
+  }
+  const halfAngle = Math.atan2(sinHalf, cosHalf);
+  const ra = Math.sin((1 - t) * halfAngle) / sinHalf;
+  const rb = Math.sin(t * halfAngle) / sinHalf;
+  return { x: a.x * ra + bx * rb, y: a.y * ra + by * rb, z: a.z * ra + bz * rb, w: a.w * ra + bw * rb };
+}
+
 export function vec3Cross(a: Vec3, b: Vec3): Vec3 {
   return {
     x: a.y * b.z - a.z * b.y,

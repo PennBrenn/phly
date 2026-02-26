@@ -119,6 +119,10 @@ export class SettingsUI {
             min="0" max="1" step="0.05">
         </div>
         <div class="settings-hint" style="margin-top:2px;margin-bottom:8px">Tree density applies on reload</div>
+        <div class="settings-row">
+          <label>Show FPS</label>
+          <div class="settings-toggle" data-setting="showFPS"></div>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -132,6 +136,30 @@ export class SettingsUI {
           <input type="range" class="settings-slider" data-setting="mouseSensitivity"
             min="0.1" max="3.0" step="0.1">
         </div>
+        <div class="settings-row">
+          <label>Invert Y</label>
+          <div class="settings-toggle" data-setting="invertY"></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Gameplay</div>
+        <div class="settings-row">
+          <label>Difficulty</label>
+          <div style="display:flex;gap:4px">
+            <button class="settings-btn" data-diff="easy">EASY</button>
+            <button class="settings-btn" data-diff="normal">NORM</button>
+            <button class="settings-btn" data-diff="hard">HARD</button>
+            <button class="settings-btn" data-diff="ace">ACE</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Seeker Lock Time</label>
+          <input type="range" class="settings-slider" data-setting="seekerDuration"
+            min="5" max="15" step="1">
+          <span class="debug-val" data-val="seekerDuration">8</span>
+        </div>
+        <div class="settings-hint" style="margin-top:2px;margin-bottom:8px">Difficulty applies on next respawn</div>
       </div>
 
       <div class="settings-section">
@@ -194,6 +222,15 @@ export class SettingsUI {
       });
     });
 
+    // Difficulty buttons
+    this.container.querySelectorAll('[data-diff]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.settings.difficulty = (btn as HTMLElement).dataset.diff as Settings['difficulty'];
+        this.save();
+        this.syncUI();
+      });
+    });
+
     // Toggles
     this.container.querySelectorAll('.settings-toggle').forEach((el) => {
       el.addEventListener('click', () => {
@@ -223,6 +260,12 @@ export class SettingsUI {
     this.container.querySelectorAll('[data-preset]').forEach((btn) => {
       const preset = (btn as HTMLElement).dataset.preset;
       btn.classList.toggle('active', preset === this.settings.quality);
+    });
+
+    // Difficulty buttons
+    this.container.querySelectorAll('[data-diff]').forEach((btn) => {
+      const diff = (btn as HTMLElement).dataset.diff;
+      btn.classList.toggle('active', diff === this.settings.difficulty);
     });
 
     // Toggles

@@ -1,0 +1,10 @@
+{
+  "id": "chaff",
+  "name": "Chaff/Flare",
+  "type": "countermeasure",
+  "ammo": 12,
+  "cooldown": 3.0,
+  "effectDuration": 4.0,
+  "missileBreakChance": 0.85,
+  "model": null
+}

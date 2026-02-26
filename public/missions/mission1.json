@@ -1,0 +1,43 @@
+{
+  "id": "mission1",
+  "name": "Valley Patrol",
+  "description": "Engage enemy fighters and ground forces in the valley.",
+  "terrainSeed": 7742,
+  "bounds": {
+    "minX": -8000,
+    "maxX": 8000,
+    "minZ": -8000,
+    "maxZ": 8000,
+    "ceiling": 6000,
+    "warningMargin": 500
+  },
+  "playerSpawn": {
+    "position": { "x": 0, "y": 2500, "z": 0 },
+    "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+    "speed": 90
+  },
+  "airEnemies": [
+    { "vehicleId": "delta", "position": { "x": 1800, "y": 600, "z": -1800 }, "patrolIndex": 0 },
+    { "vehicleId": "mig", "position": { "x": -2000, "y": 700, "z": -1200 }, "patrolIndex": 1 },
+    { "vehicleId": "su27", "position": { "x": -1500, "y": 500, "z": 1500 }, "patrolIndex": 2 },
+    { "vehicleId": "f16", "position": { "x": 2200, "y": 650, "z": 1000 }, "patrolIndex": 3 },
+    { "vehicleId": "mig", "position": { "x": 3000, "y": 550, "z": -500 }, "patrolIndex": 0 },
+    { "vehicleId": "delta", "position": { "x": -3200, "y": 800, "z": 2000 }, "patrolIndex": 1 },
+    { "vehicleId": "su27", "position": { "x": 500, "y": 750, "z": 3000 }, "patrolIndex": 2 },
+    { "vehicleId": "f16", "position": { "x": -1000, "y": 600, "z": -2500 }, "patrolIndex": 3 }
+  ],
+  "groundEnemies": [
+    { "vehicleId": "tank", "position": { "x": 500, "y": 0, "z": -600 }, "moving": true, "patrolRadius": 200 },
+    { "vehicleId": "tank", "position": { "x": -800, "y": 0, "z": 400 }, "moving": false, "patrolRadius": 0 },
+    { "vehicleId": "tank", "position": { "x": 1200, "y": 0, "z": 800 }, "moving": true, "patrolRadius": 150 },
+    { "vehicleId": "sam", "position": { "x": -400, "y": 0, "z": -1000 }, "moving": false, "patrolRadius": 0 },
+    { "vehicleId": "aa_gun", "position": { "x": 900, "y": 0, "z": -300 }, "moving": false, "patrolRadius": 0 },
+    { "vehicleId": "aa_gun", "position": { "x": -1500, "y": 0, "z": -500 }, "moving": false, "patrolRadius": 0 }
+  ],
+  "difficulty": {
+    "easy":   { "airCount": 2, "groundCount": 2, "enemyHealthMul": 0.7, "enemyManeuverMul": 0.6, "enemyFireRateMul": 0.5 },
+    "normal": { "airCount": 4, "groundCount": 4, "enemyHealthMul": 1.0, "enemyManeuverMul": 1.0, "enemyFireRateMul": 1.0 },
+    "hard":   { "airCount": 6, "groundCount": 4, "enemyHealthMul": 1.5, "enemyManeuverMul": 1.3, "enemyFireRateMul": 1.5 },
+    "ace":    { "airCount": 8, "groundCount": 6, "enemyHealthMul": 2.0, "enemyManeuverMul": 1.6, "enemyFireRateMul": 2.0 }
+  }
+}

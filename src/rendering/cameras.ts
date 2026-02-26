@@ -6,8 +6,8 @@ import { lerp } from '@/utils/math';
 const CHASE_BACK = 22;       // meters behind
 const CHASE_UP = 6;          // meters above
 // Smoothing — lower = more inertial lag (feels heavier)
-const POS_SMOOTH = 6;        // position follow speed
-const ROT_SMOOTH = 5;        // orientation follow speed
+const POS_SMOOTH = 4.5;      // position follow speed (softer)
+const ROT_SMOOTH = 3.8;      // orientation follow speed (softer)
 
 export class CameraController {
   public camera: THREE.PerspectiveCamera;
@@ -20,6 +20,10 @@ export class CameraController {
   private baseFOV = 65;
   private maxFOV = 82;
   private maxSpeedForFOV = 250;
+
+  // Camera shake
+  private shakeIntensity = 0;
+  private shakeDecay = 4.0; // how fast shake fades
 
   constructor(aspect: number) {
     this.camera = new THREE.PerspectiveCamera(this.baseFOV, aspect, 2, 50000);
@@ -37,12 +41,33 @@ export class CameraController {
     // Dynamic FOV based on speed
     const speedRatio = Math.min(state.player.speed / this.maxSpeedForFOV, 1);
     const targetFOV = this.baseFOV + (this.maxFOV - this.baseFOV) * speedRatio * speedRatio;
-    this.camera.fov = lerp(this.camera.fov, targetFOV, Math.min(dt * 4, 1));
+    this.camera.fov = lerp(this.camera.fov, targetFOV, Math.min(dt * 3, 1));
     this.camera.updateProjectionMatrix();
+
+    // Apply camera shake
+    if (this.shakeIntensity > 0.01) {
+      const sx = (Math.random() - 0.5) * 2 * this.shakeIntensity;
+      const sy = (Math.random() - 0.5) * 2 * this.shakeIntensity;
+      const sz = (Math.random() - 0.5) * 2 * this.shakeIntensity;
+      this.camera.position.x += sx;
+      this.camera.position.y += sy;
+      this.camera.position.z += sz;
+      this.shakeIntensity *= Math.max(0, 1 - this.shakeDecay * dt);
+    }
+  }
+
+  /** Trigger camera shake with given intensity (meters of displacement). */
+  shake(intensity: number): void {
+    this.shakeIntensity = Math.max(this.shakeIntensity, intensity);
+  }
+
+  /** Reset camera tracking (e.g. after respawn teleport). */
+  resetTracking(): void {
+    this.initialized = false;
   }
 
   private updateChase(
-    _state: GameState,
+    state: GameState,
     playerGroup: THREE.Group,
     dt: number,
   ): void {
@@ -73,10 +98,24 @@ export class CameraController {
     const lookAhead = new THREE.Vector3(0, 0, -12);
     lookAhead.applyQuaternion(this.smoothQuat);
     const lookTarget = this.smoothPos.clone().add(lookAhead);
+
+    // Mouse aim: shift camera look toward cursor at screen edges
+    if (state.input.useMouseAim) {
+      const mx = state.input.mouseX; // -1..1
+      const my = state.input.mouseY; // -1..1
+      // Only shift when cursor is near edges (deadzone in center)
+      const deadzone = 0.3;
+      const shiftX = Math.abs(mx) > deadzone ? (mx - Math.sign(mx) * deadzone) / (1 - deadzone) : 0;
+      const shiftY = Math.abs(my) > deadzone ? (my - Math.sign(my) * deadzone) / (1 - deadzone) : 0;
+      const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(this.smoothQuat);
+      const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.smoothQuat);
+      lookTarget.addScaledVector(camRight, shiftX * 8);
+      lookTarget.addScaledVector(camUp, -shiftY * 5);
+    }
+
     this.camera.lookAt(lookTarget);
 
     // Apply a fraction of the plane's roll to the camera for immersion
-    // Extract the plane's up vector in world space and use it to set camera up
     const planeUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.smoothQuat);
     this.camera.up.lerp(planeUp, rotAlpha);
   }

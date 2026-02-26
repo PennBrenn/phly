@@ -1,0 +1,28 @@
+[
+  {
+    "id": "mission1",
+    "name": "Valley Patrol",
+    "description": "Engage enemy fighters and ground forces in the valley.",
+    "missionFile": "/missions/mission1.json",
+    "unlocked": true,
+    "order": 0
+  },
+  {
+    "id": "mission2",
+    "name": "Mountain Assault",
+    "description": "Strike enemy positions in the mountains.",
+    "missionFile": "/missions/mission2.json",
+    "unlocked": false,
+    "requiredScore": 1000,
+    "order": 1
+  },
+  {
+    "id": "mission3",
+    "name": "Coastal Defense",
+    "description": "Defend the coastline from incoming air and naval threats.",
+    "missionFile": "/missions/mission3.json",
+    "unlocked": false,
+    "requiredScore": 3000,
+    "order": 2
+  }
+]

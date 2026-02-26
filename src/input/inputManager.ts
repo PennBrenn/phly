@@ -52,8 +52,28 @@ export class InputManager {
     input.throttleUp = this.keys.has('KeyR');
     input.throttleDown = this.keys.has('KeyF');
 
-    // Fire: left mouse button
+    // Fire: left mouse button (fires selected weapon)
     input.fire = this.mouseDown;
+
+    // Seeker engage: hold Space to engage missile seeker
+    input.seekerEngage = this.keys.has('Space');
+
+    // Legacy compat
+    input.fireMissile = false;
+
+    // Chaff/flare deploy: X
+    input.deployCountermeasure = this.keys.has('KeyX');
+
+    // Afterburner: Left Shift (hold)
+    input.afterburnerToggle = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+
+    // Weapon slot selection: 1-5
+    input.selectSlot = 0;
+    if (this.keys.has('Digit1')) input.selectSlot = 1;
+    else if (this.keys.has('Digit2')) input.selectSlot = 2;
+    else if (this.keys.has('Digit3')) input.selectSlot = 3;
+    else if (this.keys.has('Digit4')) input.selectSlot = 4;
+    else if (this.keys.has('Digit5')) input.selectSlot = 5;
 
     // Mouse position (useMouseAim is set by app from settings)
     input.mouseX = this.mouseNormX;
