@@ -1,121 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PHLY - Combat Flight Simulator</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PHLY</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    #app { width: 100%; height: 100%; position: relative; }
+    canvas { display: block; }
+  </style>
 </head>
 <body>
-  <!-- Loading Screen -->
-  <div id="loading-screen">
-    <h1>PHLY</h1>
-    <div class="subtitle">COMBAT FLIGHT SIMULATOR</div>
-    <div id="loading-bar-container"><div id="loading-bar"></div></div>
-    <div id="loading-status">INITIALIZING...</div>
-  </div>
-
-  <!-- Main Menu -->
-  <div id="main-menu" class="hidden">
-    <h1>PHLY</h1>
-    <div class="tagline">MULTIPLAYER COMBAT FLIGHT</div>
-    <button class="menu-btn" id="btn-quick-play">QUICK PLAY</button>
-    <button class="menu-btn" id="btn-hangar">HANGAR</button>
-    <button class="menu-btn" id="btn-settings">SETTINGS</button>
-    <button class="menu-btn" id="btn-daily">DAILY MISSIONS</button>
-    <div id="menu-wallet">$2,000</div>
-  </div>
-
-  <!-- Hangar Overlay -->
-  <div id="hangar-overlay">
-    <div class="hangar-wallet" id="hangar-wallet-display">$2,000</div>
-    <button class="menu-btn hangar-back" id="hangar-back">BACK</button>
-    <div id="hangar-content"></div>
-  </div>
-
-  <!-- Settings Overlay -->
-  <div id="settings-overlay">
-    <div id="settings-content"></div>
-  </div>
-
-  <!-- Daily Missions Overlay -->
-  <div id="missions-overlay">
-    <div id="missions-content"></div>
-  </div>
-
-  <!-- Game Canvas -->
-  <canvas id="game-canvas"></canvas>
-
-  <!-- HUD -->
-  <div id="hud" class="hidden">
-    <div class="hud-text" id="hud-speed"></div>
-    <div class="hud-text" id="hud-altitude"></div>
-    <div class="hud-text" id="hud-heading"></div>
-    <div class="hud-text" id="hud-gload"></div>
-    <div id="hud-reticle"></div>
-    <div id="hud-lead-diamond"></div>
-    <canvas id="hud-horizon-canvas" width="200" height="200"></canvas>
-    <div id="hud-wallet"></div>
-    <div id="hud-kill-flash"></div>
-    <div id="hud-lobby-code"></div>
-    <div id="hud-ordnance"></div>
-    <div id="hud-heat-bar"><div id="hud-heat-fill"></div></div>
-    <div id="hud-repair-warning"></div>
-    <div id="hud-damage-state"></div>
-    <div id="hud-minimap"><canvas id="minimap-canvas" width="180" height="180"></canvas></div>
-    <div id="hud-player-list"></div>
-    <div id="hud-streak"></div>
-    <div id="hud-chat">
-      <div id="chat-messages"></div>
-      <input type="text" id="chat-input" placeholder="Press Enter to send...">
-    </div>
-  </div>
-
-  <!-- Crash/Recovery Overlay -->
-  <div id="crash-overlay">
-    <div id="crash-text">PULL UP</div>
-    <div id="crash-timer"></div>
-  </div>
-
-  <!-- Landing Overlay -->
-  <div id="landing-overlay">
-    <div id="landing-status"></div>
-    <div id="repair-progress-bar"><div id="repair-progress-fill"></div></div>
-    <div id="repair-cost-display"></div>
-  </div>
-
-  <!-- Debug HUD -->
-  <div id="debug-hud"></div>
-
-  <!-- Overlays for effects -->
-  <div id="vignette-overlay"></div>
-  <div id="redout-overlay"></div>
-
-  <!-- Scripts -->
-  <script>window.onerror=function(m,s,l,c,e){console.error('[PHLY ERROR]',m,s,l);var d=document.getElementById('loading-status');if(d)d.textContent='ERROR: '+m;}</script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="js/utils/noise.js"></script>
-  <script src="js/utils/math.js"></script>
-  <script src="js/config/equipment.js"></script>
-  <script src="js/config/enemies.js"></script>
-  <script src="js/config/settings.js"></script>
-  <script src="js/core/economy.js"></script>
-  <script src="js/core/terrain.js"></script>
-  <script src="js/core/aircraft.js"></script>
-  <script src="js/core/physics.js"></script>
-  <script src="js/core/input.js"></script>
-  <script src="js/core/weapons.js"></script>
-  <script src="js/core/ai-air.js"></script>
-  <script src="js/core/ai-ground.js"></script>
-  <script src="js/core/vfx.js"></script>
-  <script src="js/core/audio.js"></script>
-  <script src="js/core/sky.js"></script>
-  <script src="js/core/hud.js"></script>
-  <script src="js/core/landing.js"></script>
-  <script src="js/core/missions.js"></script>
-  <script src="js/ui/menu.js"></script>
-  <script src="js/ui/hangar.js"></script>
-  <script src="js/ui/settings-ui.js"></script>
-  <script src="js/game.js"></script>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
