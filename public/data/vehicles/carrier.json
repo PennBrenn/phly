@@ -1,0 +1,22 @@
+{
+  "id": "carrier",
+  "name": "Carrier",
+  "type": "ground",
+  "model": "/models/enemies/carrier.glb",
+  "modelScale": 3.0,
+  "health": 500,
+  "collisionRadius": 25,
+  "speed": 3,
+  "turnRate": 0.1,
+  "weaponId": "cannon",
+  "fireRate": 8,
+  "fireRange": 1200,
+  "fireCone": 0.6,
+  "bulletSpeed": 800,
+  "bulletDamage": 4,
+  "canMove": true,
+  "isSea": true,
+  "deploysPlanes": true,
+  "deployInterval": 30,
+  "deployMax": 3
+}

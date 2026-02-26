@@ -1,0 +1,19 @@
+{
+  "id": "flak",
+  "name": "Flak Cannon",
+  "type": "ground",
+  "model": "/models/enemies/flak.glb",
+  "modelScale": 1.0,
+  "health": 50,
+  "collisionRadius": 5,
+  "speed": 0,
+  "turnRate": 0,
+  "weaponId": "cannon",
+  "fireRate": 30,
+  "fireRange": 1000,
+  "fireCone": 0.8,
+  "bulletSpeed": 700,
+  "bulletDamage": 3,
+  "canMove": false,
+  "burstCount": 5
+}

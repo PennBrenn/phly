@@ -22,8 +22,8 @@ function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
 
 export function createScene(): THREE.Scene {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x7ec8e3);
-  scene.fog = new THREE.FogExp2(0x7ec8e3, 0.000025);
+  scene.background = new THREE.Color(0x88cce8);
+  scene.fog = new THREE.FogExp2(0x88cce8, 0.000022);
   return scene;
 }
 
@@ -31,8 +31,8 @@ export function createLights(scene: THREE.Scene, shadows = true): {
   sun: THREE.DirectionalLight;
   ambient: THREE.HemisphereLight;
 } {
-  const sun = new THREE.DirectionalLight(0xfff0dd, 2.0);
-  sun.position.set(400, 600, 300);
+  const sun = new THREE.DirectionalLight(0xfff0dd, 2.2);
+  sun.position.set(600, 800, 400);
 
   if (shadows) {
     sun.castShadow = true;
@@ -51,7 +51,7 @@ export function createLights(scene: THREE.Scene, shadows = true): {
   scene.add(sun);
   scene.add(sun.target);
 
-  const ambient = new THREE.HemisphereLight(0xb0d8ff, 0x4a7a2a, 0.7);
+  const ambient = new THREE.HemisphereLight(0xb0d8ff, 0x4a7a2a, 0.8);
   scene.add(ambient);
 
   return { sun, ambient };
@@ -138,8 +138,9 @@ export function createTerrain(scene: THREE.Scene): THREE.Mesh {
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
     flatShading: false,
-    roughness: 0.85,
+    roughness: 0.88,
     metalness: 0.0,
+    envMapIntensity: 0.3,
   });
 
   const terrain = new THREE.Mesh(geometry, material);

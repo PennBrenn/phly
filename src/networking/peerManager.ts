@@ -1,72 +1,171 @@
 /**
- * Peer Manager — handles PeerJS connections and room management.
+ * Peer Manager — handles PeerJS WebRTC connections and room codes.
  *
- * Future: uses PeerJS for WebRTC data channels,
- * Vercel KV for room code persistence and discovery.
+ * Room codes use the peer ID directly (no external KV needed for local/LAN).
+ * Host creates a Peer with a known ID derived from the room code.
+ * Client connects to that peer ID.
  */
 
-export interface PeerConfig {
-  vercelKvUrl?: string;    // Vercel KV endpoint for room codes
-  maxPlayers: number;
-  tickRate: number;         // Hz for state sync (target: 20)
-}
+import Peer, { type DataConnection } from 'peerjs';
+import { decode, type NetMessage } from '@/networking/protocol';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'hosting';
+export type Role = 'none' | 'host' | 'client';
+
+export interface PeerCallbacks {
+  onConnected: (remotePeerId: string) => void;
+  onMessage: (msg: NetMessage) => void;
+  onDisconnected: (remotePeerId: string) => void;
+  onError: (err: string) => void;
+}
+
+const PEER_PREFIX = 'phly-room-';
 
 export class PeerManager {
+  private peer: Peer | null = null;
+  private conn: DataConnection | null = null;      // client's connection to host
+  private remoteConn: DataConnection | null = null; // host's connection from client
   private _state: ConnectionState = 'disconnected';
-  private _peerId: string | null = null;
-  private _roomCode: string | null = null;
-  private _config: PeerConfig;
+  private _role: Role = 'none';
+  private _roomCode = '';
+  private _callbacks: PeerCallbacks;
 
-  constructor(config?: Partial<PeerConfig>) {
-    this._config = {
-      maxPlayers: 8,
-      tickRate: 20,
-      ...config,
-    };
+  constructor(callbacks: PeerCallbacks) {
+    this._callbacks = callbacks;
   }
 
   get state(): ConnectionState { return this._state; }
-  get peerId(): string | null { return this._peerId; }
-  get roomCode(): string | null { return this._roomCode; }
+  get role(): Role { return this._role; }
+  get roomCode(): string { return this._roomCode; }
+  get isHost(): boolean { return this._role === 'host'; }
+  get isClient(): boolean { return this._role === 'client'; }
+  get isConnected(): boolean { return this._state === 'connected' || this._state === 'hosting'; }
 
-  /** Create a new room as host. */
+  /** Host a room: creates a Peer with a deterministic ID from the room code. */
   async hostRoom(): Promise<string> {
-    // TODO: initialize PeerJS, generate room code, register with Vercel KV
-    this._state = 'hosting';
     this._roomCode = this.generateCode();
-    console.log(`[PeerManager] Hosting room: ${this._roomCode}`);
-    return this._roomCode;
-  }
-
-  /** Join an existing room by code. */
-  async joinRoom(_code: string): Promise<void> {
-    // TODO: look up host peer ID from Vercel KV, connect via PeerJS
+    const peerId = PEER_PREFIX + this._roomCode;
     this._state = 'connecting';
-    console.log(`[PeerManager] Joining room: ${_code}`);
+    this._role = 'host';
+
+    return new Promise((resolve, reject) => {
+      this.peer = new Peer(peerId);
+
+      this.peer.on('open', () => {
+        console.log('[Net] Hosting room:', this._roomCode);
+        this._state = 'hosting';
+        resolve(this._roomCode);
+      });
+
+      this.peer.on('connection', (conn) => {
+        console.log('[Net] Client connected:', conn.peer);
+        this.remoteConn = conn;
+        this._state = 'connected';
+        this.wireConnection(conn);
+        this._callbacks.onConnected(conn.peer);
+      });
+
+      this.peer.on('error', (err) => {
+        console.error('[Net] Host error:', err);
+        this._callbacks.onError(String(err));
+        reject(err);
+      });
+
+      this.peer.on('disconnected', () => {
+        if (this._state !== 'disconnected') {
+          console.warn('[Net] Peer server disconnected, attempting reconnect...');
+          this.peer?.reconnect();
+        }
+      });
+    });
   }
 
-  /** Send state snapshot to all peers. */
-  broadcast(_data: string): void {
-    // TODO: send to all connected peers
+  /** Join a room by code: connects to the host's deterministic peer ID. */
+  async joinRoom(code: string): Promise<void> {
+    this._roomCode = code.toUpperCase();
+    const hostPeerId = PEER_PREFIX + this._roomCode;
+    this._state = 'connecting';
+    this._role = 'client';
+
+    return new Promise((resolve, reject) => {
+      this.peer = new Peer();
+
+      this.peer.on('open', () => {
+        console.log('[Net] Connecting to host:', hostPeerId);
+        const conn = this.peer!.connect(hostPeerId, { reliable: true });
+        this.conn = conn;
+
+        conn.on('open', () => {
+          console.log('[Net] Connected to host');
+          this._state = 'connected';
+          this.wireConnection(conn);
+          this._callbacks.onConnected(hostPeerId);
+          resolve();
+        });
+
+        conn.on('error', (err) => {
+          console.error('[Net] Connection error:', err);
+          this._callbacks.onError(String(err));
+          reject(err);
+        });
+      });
+
+      this.peer.on('error', (err) => {
+        console.error('[Net] Client error:', err);
+        this._callbacks.onError(String(err));
+        reject(err);
+      });
+    });
   }
 
-  /** Register callback for incoming messages. */
-  onMessage(_cb: (senderId: string, data: string) => void): void {
-    // TODO: wire up PeerJS data channel message handler
+  private wireConnection(conn: DataConnection): void {
+    conn.on('data', (raw) => {
+      try {
+        const msg = decode(raw as string);
+        this._callbacks.onMessage(msg);
+      } catch (e) {
+        console.warn('[Net] Bad message:', e);
+      }
+    });
+
+    conn.on('close', () => {
+      console.log('[Net] Connection closed:', conn.peer);
+      this._state = this._role === 'host' ? 'hosting' : 'disconnected';
+      this._callbacks.onDisconnected(conn.peer);
+    });
+
+    conn.on('error', (err) => {
+      console.error('[Net] Data channel error:', err);
+    });
   }
 
+  /** Send a raw encoded string to the remote peer. */
+  send(data: string): void {
+    if (this._role === 'host' && this.remoteConn?.open) {
+      this.remoteConn.send(data);
+    } else if (this._role === 'client' && this.conn?.open) {
+      this.conn.send(data);
+    }
+  }
+
+  /** Disconnect and clean up everything. */
   disconnect(): void {
+    console.log('[Net] Disconnecting');
+    this.conn?.close();
+    this.remoteConn?.close();
+    this.peer?.destroy();
+    this.conn = null;
+    this.remoteConn = null;
+    this.peer = null;
     this._state = 'disconnected';
-    this._roomCode = null;
-    // TODO: close PeerJS connections, remove room from Vercel KV
+    this._role = 'none';
+    this._roomCode = '';
   }
 
   private generateCode(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
-    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
     return code;
   }
 }

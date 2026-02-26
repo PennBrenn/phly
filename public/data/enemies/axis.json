@@ -1,0 +1,16 @@
+{
+  "id": "axis",
+  "name": "Axis",
+  "type": "air",
+  "description": "Interceptor. Few extremely powerful missiles, easily countered.",
+  "model": "/models/enemies/axis.glb",
+  "health": 90,
+  "maxSpeed": 420,
+  "pitchRate": 1.8,
+  "rollRate": 2.0,
+  "collisionRadius": 7,
+  "countermeasures": "basic",
+  "weapons": ["cannon", "destroyer"],
+  "canFireMissiles": true,
+  "chaffAmmo": 3
+}

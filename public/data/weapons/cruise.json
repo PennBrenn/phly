@@ -1,0 +1,19 @@
+{
+  "id": "cruise",
+  "name": "Cruise",
+  "type": "missile",
+  "speed": 200,
+  "maxAge": 20.0,
+  "turnRate": 1.5,
+  "gLimit": 15,
+  "damage": 300,
+  "lockRange": 5000,
+  "lockCone": 0.5,
+  "seekerTimeMin": 6,
+  "seekerTimeMax": 15,
+  "cooldown": 8.0,
+  "ammo": 1,
+  "poolSize": 1,
+  "price": 25000,
+  "model": null
+}

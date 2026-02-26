@@ -1,0 +1,15 @@
+{
+  "id": "civ-plane",
+  "name": "Civilian Airliner",
+  "type": "target",
+  "description": "Flying plane, travels along path.",
+  "model": "/models/enemies/civ-plane.glb",
+  "health": 50,
+  "maxSpeed": 150,
+  "collisionRadius": 10,
+  "weapons": [],
+  "canFireMissiles": false,
+  "chaffAmmo": 0,
+  "isTarget": true,
+  "pathFollower": true
+}

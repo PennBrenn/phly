@@ -21,6 +21,8 @@ export interface Settings {
   seekerDuration: number; // seconds to lock (5-15)
   // Debug
   debugMode: boolean;
+  cheatInfCredits: boolean;
+  cheatGodMode: boolean;
   modelOffsetX: number;
   modelOffsetY: number;
   modelOffsetZ: number;
@@ -61,6 +63,8 @@ function defaultSettings(): Settings {
     difficulty: 'normal',
     seekerDuration: 8,
     debugMode: false,
+    cheatInfCredits: false,
+    cheatGodMode: false,
     modelOffsetX: 0,
     modelOffsetY: 0,
     modelOffsetZ: 0,

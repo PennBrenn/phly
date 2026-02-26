@@ -1,0 +1,12 @@
+{
+  "id": "civ-boat",
+  "name": "Fishing Boat",
+  "type": "target",
+  "description": "Moving sea target.",
+  "model": "/models/enemies/civ-boat.glb",
+  "health": 30,
+  "maxSpeed": 10,
+  "collisionRadius": 6,
+  "isTarget": true,
+  "isSea": true
+}

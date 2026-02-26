@@ -648,19 +648,21 @@ export class HUD {
     const seeker = combat.seeker;
     if (seeker.active) {
       this.seekerBarEl.className = 'hud-seeker active';
-      const pct = Math.min(100, (seeker.lockTimer / seeker.seekDuration) * 100);
-      this.seekerFillEl.style.width = `${pct}%`;
+      const LOCK_TIME = 2.0; // must match missileSystem LOCK_TIME
+      const lockPct = Math.min(100, (seeker.lockTimer / LOCK_TIME) * 100);
+      this.seekerFillEl.style.width = `${lockPct}%`;
+      const windowLeft = Math.max(0, seeker.seekDuration - seeker.seekTimer);
       if (seeker.locked) {
         this.seekerFillEl.className = 'hud-seeker-fill locked';
         this.seekerLabelEl.textContent = 'LOCKED — CLICK TO FIRE';
         this.seekerLabelEl.style.color = '#44ff44';
       } else if (seeker.targetId >= 0) {
         this.seekerFillEl.className = 'hud-seeker-fill';
-        this.seekerLabelEl.textContent = 'SEEKING...';
-        this.seekerLabelEl.style.color = '#ff4444';
+        this.seekerLabelEl.textContent = `LOCKING... (${windowLeft.toFixed(1)}s)`;
+        this.seekerLabelEl.style.color = '#ffaa22';
       } else {
         this.seekerFillEl.className = 'hud-seeker-fill';
-        this.seekerLabelEl.textContent = 'NO TARGET';
+        this.seekerLabelEl.textContent = `NO TARGET (${windowLeft.toFixed(1)}s)`;
         this.seekerLabelEl.style.color = '#888';
       }
     } else {

@@ -3,8 +3,8 @@ import type { GameState } from '@/state/gameState';
 import { lerp } from '@/utils/math';
 
 // Chase cam: offset behind and above the plane in LOCAL space
-const CHASE_BACK = 22;       // meters behind
-const CHASE_UP = 6;          // meters above
+const CHASE_BACK = 10;       // meters behind
+const CHASE_UP = 3;          // meters above
 // Smoothing — lower = more inertial lag (feels heavier)
 const POS_SMOOTH = 4.5;      // position follow speed (softer)
 const ROT_SMOOTH = 3.8;      // orientation follow speed (softer)
@@ -95,22 +95,18 @@ export class CameraController {
     this.camera.position.copy(this.smoothPos).add(offset);
 
     // Look-at target: slightly ahead of the smoothed plane position
-    const lookAhead = new THREE.Vector3(0, 0, -12);
+    const lookAhead = new THREE.Vector3(0, 0, -8);
     lookAhead.applyQuaternion(this.smoothQuat);
     const lookTarget = this.smoothPos.clone().add(lookAhead);
 
-    // Mouse aim: shift camera look toward cursor at screen edges
+    // Free-look: mouse moves camera view across the full screen bounds
     if (state.input.useMouseAim) {
       const mx = state.input.mouseX; // -1..1
       const my = state.input.mouseY; // -1..1
-      // Only shift when cursor is near edges (deadzone in center)
-      const deadzone = 0.3;
-      const shiftX = Math.abs(mx) > deadzone ? (mx - Math.sign(mx) * deadzone) / (1 - deadzone) : 0;
-      const shiftY = Math.abs(my) > deadzone ? (my - Math.sign(my) * deadzone) / (1 - deadzone) : 0;
       const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(this.smoothQuat);
       const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.smoothQuat);
-      lookTarget.addScaledVector(camRight, shiftX * 8);
-      lookTarget.addScaledVector(camUp, -shiftY * 5);
+      lookTarget.addScaledVector(camRight, mx * 25);
+      lookTarget.addScaledVector(camUp, -my * 18);
     }
 
     this.camera.lookAt(lookTarget);

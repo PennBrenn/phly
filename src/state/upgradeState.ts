@@ -1,8 +1,6 @@
 /**
- * Upgrade State — tracks unlocked planes, upgrades, and loadouts.
- *
- * Future: planes are unlocked with credits, upgrades modify
- * plane stats (thrust, turn rate, health, weapon capacity).
+ * Upgrade State — tracks unlocked planes, weapons, and active loadout.
+ * Planes and weapons are bought permanently with credits.
  */
 
 export interface PlaneUnlock {
@@ -11,48 +9,72 @@ export interface PlaneUnlock {
   purchasePrice: number;
 }
 
-export interface UpgradeSlot {
-  id: string;
-  name: string;
-  description: string;
-  stat: string;          // e.g. 'maxThrust', 'pitchRate', 'health'
-  modifier: number;      // multiplier, e.g. 1.1 = +10%
-  price: number;
-  purchased: boolean;
+export interface WeaponUnlock {
+  weaponId: string;
+  unlocked: boolean;
+  purchasePrice: number;
 }
 
 export interface LoadoutConfig {
   planeId: string;
   weaponSlots: { slot: number; weaponId: string }[];
-  upgrades: string[];    // applied upgrade IDs
 }
 
 export interface UpgradeState {
   planes: PlaneUnlock[];
-  upgrades: UpgradeSlot[];
+  weapons: WeaponUnlock[];
   selectedPlane: string;
   loadout: LoadoutConfig;
 }
 
+// All planes ordered by price
+const ALL_PLANES: PlaneUnlock[] = [
+  { planeId: 'pico',    unlocked: true,  purchasePrice: 0 },
+  { planeId: 'delta',   unlocked: false, purchasePrice: 1500 },
+  { planeId: 'vector',  unlocked: false, purchasePrice: 3000 },
+  { planeId: 'cutlass', unlocked: false, purchasePrice: 4000 },
+  { planeId: 'titan',   unlocked: false, purchasePrice: 5000 },
+  { planeId: 'flanker', unlocked: false, purchasePrice: 6000 },
+  { planeId: 'typhoon', unlocked: false, purchasePrice: 8000 },
+  { planeId: 'bobcat',  unlocked: false, purchasePrice: 10000 },
+  { planeId: 'bat',     unlocked: false, purchasePrice: 12000 },
+  { planeId: 'raptor',  unlocked: false, purchasePrice: 20000 },
+  { planeId: 'felon',   unlocked: false, purchasePrice: 25000 },
+  { planeId: 'ghost',   unlocked: false, purchasePrice: 30000 },
+  { planeId: 'reaper',  unlocked: false, purchasePrice: 35000 },
+];
+
+// All weapons (missiles) ordered by price
+const ALL_WEAPONS: WeaponUnlock[] = [
+  { weaponId: 'cannon',    unlocked: true, purchasePrice: 0 },
+  { weaponId: 'chaff',     unlocked: true, purchasePrice: 0 },
+  { weaponId: 'mini',      unlocked: true, purchasePrice: 0 },
+  { weaponId: 'macro',     unlocked: false, purchasePrice: 500 },
+  { weaponId: 'sidewinder',unlocked: false, purchasePrice: 800 },
+  { weaponId: 'meteor',    unlocked: false, purchasePrice: 1000 },
+  { weaponId: 'dart',      unlocked: false, purchasePrice: 1200 },
+  { weaponId: 'duplex',    unlocked: false, purchasePrice: 1500 },
+  { weaponId: 'flash',     unlocked: false, purchasePrice: 2500 },
+  { weaponId: 'sprint',    unlocked: false, purchasePrice: 4000 },
+  { weaponId: 'zip',       unlocked: false, purchasePrice: 6000 },
+  { weaponId: 'birdshot',  unlocked: false, purchasePrice: 8000 },
+  { weaponId: 'destroyer', unlocked: false, purchasePrice: 12000 },
+  { weaponId: 'cruise',    unlocked: false, purchasePrice: 25000 },
+];
+
 export function createUpgradeState(): UpgradeState {
   return {
-    planes: [
-      { planeId: 'delta', unlocked: true, purchasePrice: 0 },
-      { planeId: 'f16', unlocked: false, purchasePrice: 5000 },
-      { planeId: 'mig', unlocked: false, purchasePrice: 3000 },
-      { planeId: 'su27', unlocked: false, purchasePrice: 8000 },
-    ],
-    upgrades: [],
-    selectedPlane: 'delta',
+    planes: ALL_PLANES.map(p => ({ ...p })),
+    weapons: ALL_WEAPONS.map(w => ({ ...w })),
+    selectedPlane: 'pico',
     loadout: {
-      planeId: 'delta',
+      planeId: 'pico',
       weaponSlots: [
         { slot: 1, weaponId: 'cannon' },
-        { slot: 2, weaponId: 'sidewinder' },
-        { slot: 3, weaponId: 'sidewinder' },
+        { slot: 2, weaponId: 'mini' },
+        { slot: 3, weaponId: 'mini' },
         { slot: 4, weaponId: 'chaff' },
       ],
-      upgrades: [],
     },
   };
 }
@@ -62,7 +84,25 @@ const STORAGE_KEY = 'phly-upgrades';
 export function loadUpgradeState(): UpgradeState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...createUpgradeState(), ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw) as UpgradeState;
+      // Merge with defaults in case new planes/weapons were added
+      const base = createUpgradeState();
+      for (const p of base.planes) {
+        const existing = saved.planes?.find(sp => sp.planeId === p.planeId);
+        if (existing) { p.unlocked = existing.unlocked; }
+      }
+      for (const w of base.weapons) {
+        const existing = saved.weapons?.find(sw => sw.weaponId === w.weaponId);
+        if (existing) { w.unlocked = existing.unlocked; }
+      }
+      return {
+        planes: base.planes,
+        weapons: base.weapons,
+        selectedPlane: saved.selectedPlane || base.selectedPlane,
+        loadout: saved.loadout || base.loadout,
+      };
+    }
   } catch { /* ignore */ }
   return createUpgradeState();
 }

@@ -1,0 +1,33 @@
+{
+  "id": "bat",
+  "name": "Bat",
+  "description": "TO BE ADDED",
+  "model": "/models/planes/bat.glb",
+  "mass": 5500,
+  "maxThrust": 40000,
+  "wingArea": 22.0,
+  "wingSpan": 12.0,
+  "maxSpeed": 310,
+  "stallSpeed": 45,
+  "pitchRate": 2.3,
+  "yawRate": 0.65,
+  "rollRate": 2.5,
+  "gLimit": 7.5,
+  "health": 85,
+  "armor": 2,
+  "collisionRadius": 7,
+  "price": 12000,
+  "starter": false,
+  "countermeasures": "advanced",
+  "statSpeed": 5,
+  "statArmor": 4,
+  "statAgility": 7,
+  "engines": [{ "x": -1.5, "y": -0.1, "z": 2.0 }, { "x": 1.5, "y": -0.1, "z": 2.0 }],
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -3.0, "y": -0.5, "z": 0 } },
+    { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 3.0, "y": -0.5, "z": 0 } },
+    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
+  ],
+  "ordnanceSlots": [2, 3]
+}

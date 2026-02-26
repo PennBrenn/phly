@@ -1,0 +1,19 @@
+{
+  "id": "sprint",
+  "name": "Sprint",
+  "type": "missile",
+  "speed": 400,
+  "maxAge": 5.0,
+  "turnRate": 3.0,
+  "gLimit": 35,
+  "damage": 50,
+  "lockRange": 2000,
+  "lockCone": 0.6,
+  "seekerTimeMin": 3,
+  "seekerTimeMax": 10,
+  "cooldown": 2.0,
+  "ammo": 2,
+  "poolSize": 4,
+  "price": 4000,
+  "model": null
+}

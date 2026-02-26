@@ -1,0 +1,33 @@
+{
+  "id": "bobcat",
+  "name": "Bobcat",
+  "description": "TO BE ADDED",
+  "model": "/models/planes/bobcat.glb",
+  "mass": 6500,
+  "maxThrust": 45000,
+  "wingArea": 16.0,
+  "wingSpan": 7.5,
+  "maxSpeed": 350,
+  "stallSpeed": 50,
+  "pitchRate": 2.5,
+  "yawRate": 0.7,
+  "rollRate": 3.0,
+  "gLimit": 8.0,
+  "health": 90,
+  "armor": 3,
+  "collisionRadius": 6,
+  "price": 10000,
+  "starter": false,
+  "countermeasures": "basic",
+  "statSpeed": 7,
+  "statArmor": 4,
+  "statAgility": 8,
+  "engines": [{ "x": 0, "y": -0.12, "z": 2.5 }],
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -2.2, "y": -0.5, "z": 0 } },
+    { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 2.2, "y": -0.5, "z": 0 } },
+    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
+  ],
+  "ordnanceSlots": [2, 3]
+}

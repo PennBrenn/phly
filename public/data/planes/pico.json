@@ -1,0 +1,35 @@
+{
+  "id": "pico",
+  "name": "Pico",
+  "description": "Small, light, fast, maneuverable starter plane.",
+  "model": "/models/planes/pico.glb",
+  "mass": 4500,
+  "maxThrust": 35000,
+  "wingArea": 12.0,
+  "wingSpan": 7.0,
+  "maxSpeed": 340,
+  "stallSpeed": 50,
+  "pitchRate": 2.8,
+  "yawRate": 0.8,
+  "rollRate": 3.5,
+  "gLimit": 8.0,
+  "health": 70,
+  "armor": 1,
+  "collisionRadius": 5,
+  "price": 0,
+  "starter": true,
+  "countermeasures": "basic",
+  "statSpeed": 7,
+  "statArmor": 3,
+  "statAgility": 9,
+  "engines": [
+    { "x": 0, "y": -0.1, "z": 2.0 }
+  ],
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.2, "z": -2.5 } },
+    { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -1.8, "y": -0.4, "z": 0 } },
+    { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 1.8, "y": -0.4, "z": 0 } },
+    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.0 } }
+  ],
+  "ordnanceSlots": [2, 3]
+}

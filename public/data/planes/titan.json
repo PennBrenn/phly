@@ -1,0 +1,36 @@
+{
+  "id": "titan",
+  "name": "Titan",
+  "description": "Insane health and armor. A flying fortress.",
+  "model": "/models/planes/titan.glb",
+  "mass": 12000,
+  "maxThrust": 60000,
+  "wingArea": 25.0,
+  "wingSpan": 11.0,
+  "maxSpeed": 280,
+  "stallSpeed": 60,
+  "pitchRate": 1.6,
+  "yawRate": 0.5,
+  "rollRate": 1.8,
+  "gLimit": 6.0,
+  "health": 200,
+  "armor": 5,
+  "collisionRadius": 8,
+  "price": 5000,
+  "starter": false,
+  "countermeasures": "basic",
+  "statSpeed": 3,
+  "statArmor": 10,
+  "statAgility": 2,
+  "engines": [
+    { "x": -1.5, "y": -0.2, "z": 3.0 },
+    { "x": 1.5, "y": -0.2, "z": 3.0 }
+  ],
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3.5 } },
+    { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -3.0, "y": -0.5, "z": 0 } },
+    { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 3.0, "y": -0.5, "z": 0 } },
+    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 2.0 } }
+  ],
+  "ordnanceSlots": [2, 3]
+}

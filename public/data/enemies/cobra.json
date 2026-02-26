@@ -1,0 +1,16 @@
+{
+  "id": "cobra",
+  "name": "Cobra",
+  "type": "air",
+  "description": "Hypermaneuverable jet. Few missiles. Advanced countermeasures.",
+  "model": "/models/enemies/cobra.glb",
+  "health": 80,
+  "maxSpeed": 380,
+  "pitchRate": 3.0,
+  "rollRate": 3.5,
+  "collisionRadius": 6,
+  "countermeasures": "advanced",
+  "weapons": ["cannon", "flash"],
+  "canFireMissiles": true,
+  "chaffAmmo": 8
+}

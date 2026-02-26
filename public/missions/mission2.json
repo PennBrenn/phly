@@ -1,0 +1,51 @@
+{
+  "id": "mission2",
+  "name": "Mountain Assault",
+  "description": "Strike enemy positions in the mountains. Heavy AA presence.",
+  "biome": "mountains",
+  "terrainSeed": 3318,
+  "objectives": [
+    { "id": "obj1", "type": "destroy_air", "count": 4, "label": "Destroy 4 enemy aircraft" },
+    { "id": "obj2", "type": "destroy_ground", "count": 3, "label": "Destroy 3 AA positions" },
+    { "id": "obj3", "type": "survive", "label": "Return alive" }
+  ],
+  "rewards": { "credits": 1000, "score": 2000 },
+  "timeLimitSeconds": 360,
+  "bounds": {
+    "minX": -10000,
+    "maxX": 10000,
+    "minZ": -10000,
+    "maxZ": 10000,
+    "ceiling": 8000,
+    "warningMargin": 600
+  },
+  "playerSpawn": {
+    "position": { "x": 0, "y": 3500, "z": 0 },
+    "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 },
+    "speed": 100
+  },
+  "airEnemies": [
+    { "vehicleId": "mig", "position": { "x": 2000, "y": 1200, "z": -2000 }, "patrolIndex": 0 },
+    { "vehicleId": "su27", "position": { "x": -2500, "y": 1400, "z": -1500 }, "patrolIndex": 1 },
+    { "vehicleId": "f16", "position": { "x": -1800, "y": 1000, "z": 2000 }, "patrolIndex": 2 },
+    { "vehicleId": "mig", "position": { "x": 3000, "y": 1300, "z": 1200 }, "patrolIndex": 3 },
+    { "vehicleId": "su27", "position": { "x": 4000, "y": 1100, "z": -800 }, "patrolIndex": 0 },
+    { "vehicleId": "delta", "position": { "x": -3500, "y": 1500, "z": 2500 }, "patrolIndex": 1 },
+    { "vehicleId": "f16", "position": { "x": 800, "y": 1200, "z": 3500 }, "patrolIndex": 2 },
+    { "vehicleId": "mig", "position": { "x": -1200, "y": 1000, "z": -3000 }, "patrolIndex": 3 }
+  ],
+  "groundEnemies": [
+    { "vehicleId": "aa_gun", "position": { "x": 600, "y": 0, "z": -800 }, "moving": false, "patrolRadius": 0 },
+    { "vehicleId": "aa_gun", "position": { "x": -1000, "y": 0, "z": 600 }, "moving": false, "patrolRadius": 0 },
+    { "vehicleId": "sam", "position": { "x": 1500, "y": 0, "z": 1000 }, "moving": false, "patrolRadius": 0 },
+    { "vehicleId": "sam", "position": { "x": -500, "y": 0, "z": -1500 }, "moving": false, "patrolRadius": 0 },
+    { "vehicleId": "tank", "position": { "x": 800, "y": 0, "z": 400 }, "moving": true, "patrolRadius": 200 },
+    { "vehicleId": "flak", "position": { "x": -1200, "y": 0, "z": -200 }, "moving": false, "patrolRadius": 0 }
+  ],
+  "difficulty": {
+    "easy":   { "airCount": 3, "groundCount": 2, "enemyHealthMul": 0.7, "enemyManeuverMul": 0.6, "enemyFireRateMul": 0.5 },
+    "normal": { "airCount": 5, "groundCount": 4, "enemyHealthMul": 1.0, "enemyManeuverMul": 1.0, "enemyFireRateMul": 1.0 },
+    "hard":   { "airCount": 7, "groundCount": 5, "enemyHealthMul": 1.5, "enemyManeuverMul": 1.3, "enemyFireRateMul": 1.5 },
+    "ace":    { "airCount": 8, "groundCount": 6, "enemyHealthMul": 2.0, "enemyManeuverMul": 1.6, "enemyFireRateMul": 2.0 }
+  }
+}

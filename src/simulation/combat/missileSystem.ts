@@ -14,6 +14,7 @@ const MISSILE_COOLDOWN = 2.0;
 const LOCK_RANGE = 2000;
 const LOCK_CONE = 0.7;
 const GRAVITY = 9.81;
+const LOCK_TIME = 2.0; // seconds to acquire lock on a target once tracking
 
 /** Find best enemy in front of player within lock cone. */
 function findSeekerTarget(enemies: EnemyState[], playerPos: Vec3, playerFwd: Vec3): number {
@@ -71,10 +72,10 @@ function updateSeekerSystem(state: GameState): void {
 
   // While seeker is active, update tracking
   if (seeker.active) {
-    // Auto-expire after seekDuration * 2 if no lock (generous window)
+    // seekTimer counts up — the window is seekDuration seconds total
     seeker.seekTimer += dt;
 
-    // Validate / acquire target
+    // Continuously search for / validate target
     if (seeker.targetId >= 0) {
       const target = combat.enemies.find(e => e.id === seeker.targetId);
       if (!target || target.aiMode === 'destroyed') {
@@ -87,14 +88,14 @@ function updateSeekerSystem(state: GameState): void {
       seeker.lockTimer = 0;
     }
 
-    // Lock progress
+    // Lock acquisition — takes LOCK_TIME seconds once a target is being tracked
     if (seeker.targetId >= 0 && !seeker.locked) {
       seeker.lockTimer += dt;
-      if (seeker.lockTimer >= seeker.seekDuration) seeker.locked = true;
+      if (seeker.lockTimer >= LOCK_TIME) seeker.locked = true;
     }
 
-    // Auto-deactivate if seeker timer exceeds max active time
-    if (seeker.seekTimer > seeker.seekDuration * 3) {
+    // Window expired without a lock — deactivate seeker
+    if (!seeker.locked && seeker.seekTimer > seeker.seekDuration) {
       seeker.active = false;
       seeker.seekTimer = 0;
       seeker.lockTimer = 0;

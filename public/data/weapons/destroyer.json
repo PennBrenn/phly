@@ -1,0 +1,19 @@
+{
+  "id": "destroyer",
+  "name": "Destroyer",
+  "type": "missile",
+  "speed": 300,
+  "maxAge": 9.0,
+  "turnRate": 2.8,
+  "gLimit": 30,
+  "damage": 100,
+  "lockRange": 2500,
+  "lockCone": 0.6,
+  "seekerTimeMin": 4,
+  "seekerTimeMax": 12,
+  "cooldown": 4.0,
+  "ammo": 1,
+  "poolSize": 2,
+  "price": 12000,
+  "model": null
+}

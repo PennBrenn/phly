@@ -1,0 +1,19 @@
+{
+  "id": "macro",
+  "name": "Macro",
+  "type": "missile",
+  "speed": 220,
+  "maxAge": 6.0,
+  "turnRate": 2.2,
+  "gLimit": 24,
+  "damage": 35,
+  "lockRange": 1400,
+  "lockCone": 0.65,
+  "seekerTimeMin": 5,
+  "seekerTimeMax": 15,
+  "cooldown": 1.8,
+  "ammo": 4,
+  "poolSize": 6,
+  "price": 500,
+  "model": null
+}

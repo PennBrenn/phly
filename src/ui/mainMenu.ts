@@ -1,7 +1,7 @@
 export class MainMenu {
   private container: HTMLDivElement;
   private onStart: () => void;
-  private resolved = false;
+  private _visible = true;
 
   constructor(onStart: () => void) {
     this.onStart = onStart;
@@ -11,16 +11,16 @@ export class MainMenu {
       <style>
         #main-menu {
           position: fixed; inset: 0;
-          background: linear-gradient(180deg, #0a0a12 0%, #111122 50%, #0a0a12 100%);
+          background: rgba(8,8,18,0.6);
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
           z-index: 900;
           font-family: 'Courier New', monospace;
           color: #fff;
-          transition: opacity 0.6s;
+          transition: opacity 0.4s;
           overflow: hidden;
         }
-        #main-menu.fade-out { opacity: 0; pointer-events: none; }
+        #main-menu.hidden { opacity: 0; pointer-events: none; display: none; }
 
         .mm-title {
           font-size: 96px;
@@ -106,38 +106,46 @@ export class MainMenu {
       <div class="mm-bg-grid"></div>
       <div class="mm-title">PHLY</div>
       <div class="mm-subtitle">Flight Combat</div>
-      <button class="mm-btn primary" id="mm-start">Start Mission</button>
+      <button class="mm-btn primary" id="mm-start">Play</button>
+      <button class="mm-btn" id="mm-multiplayer">Multiplayer</button>
       <button class="mm-btn" id="mm-settings">Settings</button>
       <div class="mm-controls">
         WASD: Pitch/Roll &nbsp;|&nbsp; Q/E: Yaw &nbsp;|&nbsp; R/F: Throttle<br>
         Space: Seeker &nbsp;|&nbsp; Click: Fire &nbsp;|&nbsp; Shift: Afterburner<br>
         X: Chaff &nbsp;|&nbsp; 1-4: Weapons &nbsp;|&nbsp; Tab: Camera
       </div>
-      <div class="mm-version">v0.2.0</div>
+      <div class="mm-version">v0.3.0</div>
     `;
     document.body.appendChild(this.container);
 
     this.container.querySelector('#mm-start')!.addEventListener('click', () => {
       this.hide();
+      this.onStart();
     });
   }
 
-  /** Hook to open settings panel from menu */
   onSettingsClick(cb: () => void): void {
     this.container.querySelector('#mm-settings')!.addEventListener('click', cb);
   }
 
+  onMultiplayerClick(cb: () => void): void {
+    this.container.querySelector('#mm-multiplayer')!.addEventListener('click', () => {
+      this.hide();
+      cb();
+    });
+  }
+
   isVisible(): boolean {
-    return !this.resolved;
+    return this._visible;
+  }
+
+  show(): void {
+    this._visible = true;
+    this.container.classList.remove('hidden');
   }
 
   hide(): void {
-    if (this.resolved) return;
-    this.resolved = true;
-    this.container.classList.add('fade-out');
-    setTimeout(() => {
-      this.container.remove();
-      this.onStart();
-    }, 600);
+    this._visible = false;
+    this.container.classList.add('hidden');
   }
 }

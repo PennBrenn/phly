@@ -1,0 +1,35 @@
+{
+  "id": "vector",
+  "name": "Vector",
+  "description": "Hypermaneuverable but slow. Unmatched agility.",
+  "model": "/models/planes/vector.glb",
+  "mass": 6000,
+  "maxThrust": 38000,
+  "wingArea": 20.0,
+  "wingSpan": 9.0,
+  "maxSpeed": 300,
+  "stallSpeed": 40,
+  "pitchRate": 3.2,
+  "yawRate": 1.0,
+  "rollRate": 4.0,
+  "gLimit": 9.0,
+  "health": 80,
+  "armor": 2,
+  "collisionRadius": 6,
+  "price": 3000,
+  "starter": false,
+  "countermeasures": "basic",
+  "statSpeed": 4,
+  "statArmor": 4,
+  "statAgility": 10,
+  "engines": [
+    { "x": 0, "y": -0.15, "z": 2.5 }
+  ],
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -2.2, "y": -0.5, "z": 0 } },
+    { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 2.2, "y": -0.5, "z": 0 } },
+    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
+  ],
+  "ordnanceSlots": [2, 3]
+}

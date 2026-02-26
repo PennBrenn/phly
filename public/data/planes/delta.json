@@ -1,7 +1,8 @@
 {
   "id": "delta",
-  "name": "F-5E Tiger II",
-  "model": "/models/planes/planes/delta.glb",
+  "name": "Delta",
+  "description": "Light, fast, jack of all trades.",
+  "model": "/models/planes/delta.glb",
   "mass": 7000,
   "maxThrust": 50000,
   "wingArea": 17.3,
@@ -13,15 +14,22 @@
   "rollRate": 2.4,
   "gLimit": 7.0,
   "health": 100,
+  "armor": 3,
   "collisionRadius": 6,
+  "price": 1500,
+  "starter": false,
+  "countermeasures": "advanced",
+  "statSpeed": 8,
+  "statArmor": 5,
+  "statAgility": 7,
   "engines": [
-    { "x": -1.2, "y": -0.1, "z": 2.5 },
-    { "x": 1.2, "y": -0.1, "z": 2.5 }
+    { "x": 0, "y": -0.15, "z": 2.8 }
   ],
   "weaponSlots": [
     { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
     { "slot": 2, "weaponId": "sidewinder", "hardpoint": { "x": -2.5, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "sidewinder", "hardpoint": { "x": 2.5, "y": -0.5, "z": 0 } },
     { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
-  ]
+  ],
+  "ordnanceSlots": [2, 3]
 }

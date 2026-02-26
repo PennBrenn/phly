@@ -44,9 +44,9 @@ const SPEED_OF_SOUND = 340;   // m/s at sea level
 const STALL_SPEED = 55;       // m/s — below this, lift fades
 
 // Control surface max deflection rates (rad/s at max q-bar authority)
-const PITCH_RATE_MAX = 2.0;
-const YAW_RATE_MAX = 0.55;
-const ROLL_RATE_MAX = 2.4;
+const PITCH_RATE_MAX = 2.6;
+const YAW_RATE_MAX = 0.75;
+const ROLL_RATE_MAX = 3.2;
 // Control surfaces produce torque proportional to dynamic pressure.
 // REF_Q is the dynamic pressure at which deflection rates are 100%.
 const REF_Q = 0.5 * RHO * 90 * 90;   // ~90 m/s reference
@@ -55,7 +55,7 @@ const G_LIMIT = 7.0;
 
 // How fast control surfaces physically move (smoothing toward input)
 // Lower = more fluid/gradual, higher = snappier
-const CONTROL_SMOOTHING = 4.0;
+const CONTROL_SMOOTHING = 5.0;
 
 // Secondary smoothing pass on angular rates to prevent jitter
 const RATE_SMOOTHING = 6.0;

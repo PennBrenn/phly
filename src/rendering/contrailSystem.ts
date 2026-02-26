@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 
-const MAX_PARTICLES = 600;
-const PARTICLE_LIFETIME = 2.5;
-const EMIT_RATE = 80;
-const AB_EMIT_RATE = 160;       // afterburner doubles emit rate
-const SPREAD = 0.3;
-const INITIAL_SIZE = 0.4;
-const FINAL_SIZE = 3.0;
-const INITIAL_OPACITY = 0.5;
-const AB_INITIAL_SIZE = 0.6;
-const AB_FINAL_SIZE = 2.0;
+const MAX_PARTICLES = 300;
+const PARTICLE_LIFETIME = 1.2;
+const EMIT_RATE = 40;
+const AB_EMIT_RATE = 70;
+const SPREAD = 0.08;
+const INITIAL_SIZE = 0.12;
+const FINAL_SIZE = 0.6;
+const INITIAL_OPACITY = 0.3;
+const AB_INITIAL_SIZE = 0.18;
+const AB_FINAL_SIZE = 0.45;
 
 interface Particle {
   position: THREE.Vector3;

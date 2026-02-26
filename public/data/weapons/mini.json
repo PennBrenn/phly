@@ -1,0 +1,19 @@
+{
+  "id": "mini",
+  "name": "Mini",
+  "type": "missile",
+  "speed": 200,
+  "maxAge": 5.0,
+  "turnRate": 2.0,
+  "gLimit": 20,
+  "damage": 25,
+  "lockRange": 1200,
+  "lockCone": 0.6,
+  "seekerTimeMin": 5,
+  "seekerTimeMax": 15,
+  "cooldown": 1.5,
+  "ammo": 4,
+  "poolSize": 6,
+  "price": 200,
+  "model": null
+}

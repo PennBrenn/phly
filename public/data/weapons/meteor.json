@@ -1,0 +1,19 @@
+{
+  "id": "meteor",
+  "name": "Meteor",
+  "type": "missile",
+  "speed": 260,
+  "maxAge": 7.0,
+  "turnRate": 2.6,
+  "gLimit": 28,
+  "damage": 45,
+  "lockRange": 1600,
+  "lockCone": 0.7,
+  "seekerTimeMin": 4,
+  "seekerTimeMax": 12,
+  "cooldown": 2.0,
+  "ammo": 3,
+  "poolSize": 6,
+  "price": 1000,
+  "model": null
+}

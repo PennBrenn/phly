@@ -1,0 +1,18 @@
+{
+  "id": "doomsday",
+  "name": "Doomsday",
+  "type": "air",
+  "description": "Bomber with many turrets. No countermeasures.",
+  "model": "/models/enemies/doomsday.glb",
+  "health": 300,
+  "maxSpeed": 180,
+  "pitchRate": 0.8,
+  "rollRate": 1.0,
+  "collisionRadius": 12,
+  "countermeasures": "none",
+  "weapons": ["cannon"],
+  "canFireMissiles": false,
+  "chaffAmmo": 0,
+  "turretCount": 4,
+  "fireRate": 8
+}

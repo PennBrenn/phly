@@ -1,0 +1,33 @@
+{
+  "id": "reaper",
+  "name": "Reaper",
+  "description": "TO BE ADDED",
+  "model": "/models/planes/reaper.glb",
+  "mass": 8500,
+  "maxThrust": 60000,
+  "wingArea": 19.0,
+  "wingSpan": 9.5,
+  "maxSpeed": 370,
+  "stallSpeed": 55,
+  "pitchRate": 2.5,
+  "yawRate": 0.7,
+  "rollRate": 2.8,
+  "gLimit": 8.0,
+  "health": 115,
+  "armor": 4,
+  "collisionRadius": 7,
+  "price": 35000,
+  "starter": false,
+  "countermeasures": "advanced",
+  "statSpeed": 8,
+  "statArmor": 6,
+  "statAgility": 7,
+  "engines": [{ "x": -1.2, "y": -0.18, "z": 3.0 }, { "x": 1.2, "y": -0.18, "z": 3.0 }],
+  "weaponSlots": [
+    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3.5 } },
+    { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -3.0, "y": -0.5, "z": 0 } },
+    { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 3.0, "y": -0.5, "z": 0 } },
+    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 2.0 } }
+  ],
+  "ordnanceSlots": [2, 3]
+}

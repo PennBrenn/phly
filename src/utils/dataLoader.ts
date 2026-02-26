@@ -22,10 +22,12 @@ export interface WeaponData {
   seekerTimeMin?: number;
   seekerTimeMax?: number;
   cooldown?: number;
+  submunitions?: number;
   // Countermeasure fields
   effectDuration?: number;
   missileBreakChance?: number;
   model?: string | null;
+  price?: number;
 }
 
 export interface WeaponSlotData {
@@ -43,6 +45,7 @@ export interface EnginePosition {
 export interface PlaneData {
   id: string;
   name: string;
+  description?: string;
   model: string;
   mass: number;
   maxThrust: number;
@@ -55,9 +58,17 @@ export interface PlaneData {
   rollRate: number;
   gLimit: number;
   health: number;
+  armor?: number;
   collisionRadius: number;
+  price?: number;
+  starter?: boolean;
+  countermeasures?: string;
+  statSpeed?: number;
+  statArmor?: number;
+  statAgility?: number;
   engines: EnginePosition[];
   weaponSlots: WeaponSlotData[];
+  ordnanceSlots?: number[];
 }
 
 export interface VehicleData {
@@ -113,11 +124,22 @@ export interface DifficultyTuning {
   enemyFireRateMul: number;
 }
 
+export interface MissionObjective {
+  id: string;
+  type: 'destroy_air' | 'destroy_ground' | 'survive' | 'protect' | 'reach';
+  count?: number;
+  label: string;
+}
+
 export interface MissionData {
   id: string;
   name: string;
   description: string;
+  biome?: string;
   terrainSeed: number;
+  objectives?: MissionObjective[];
+  rewards?: { credits: number; score: number };
+  timeLimitSeconds?: number;
   bounds: MissionBounds;
   playerSpawn: {
     position: { x: number; y: number; z: number };

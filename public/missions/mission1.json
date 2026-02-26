@@ -2,7 +2,15 @@
   "id": "mission1",
   "name": "Valley Patrol",
   "description": "Engage enemy fighters and ground forces in the valley.",
+  "biome": "plains",
   "terrainSeed": 7742,
+  "objectives": [
+    { "id": "obj1", "type": "destroy_air", "count": 3, "label": "Destroy 3 enemy aircraft" },
+    { "id": "obj2", "type": "destroy_ground", "count": 2, "label": "Destroy 2 ground targets" },
+    { "id": "obj3", "type": "survive", "label": "Return alive" }
+  ],
+  "rewards": { "credits": 500, "score": 1000 },
+  "timeLimitSeconds": 300,
   "bounds": {
     "minX": -8000,
     "maxX": 8000,

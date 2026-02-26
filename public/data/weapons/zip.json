@@ -1,0 +1,19 @@
+{
+  "id": "zip",
+  "name": "Zip",
+  "type": "missile",
+  "speed": 450,
+  "maxAge": 4.5,
+  "turnRate": 3.5,
+  "gLimit": 40,
+  "damage": 55,
+  "lockRange": 2200,
+  "lockCone": 0.55,
+  "seekerTimeMin": 2,
+  "seekerTimeMax": 8,
+  "cooldown": 2.5,
+  "ammo": 2,
+  "poolSize": 4,
+  "price": 6000,
+  "model": null
+}

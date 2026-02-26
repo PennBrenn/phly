@@ -1,0 +1,19 @@
+{
+  "id": "cruiser",
+  "name": "Cruiser",
+  "type": "ground",
+  "model": "/models/enemies/cruiser.glb",
+  "modelScale": 2.0,
+  "health": 200,
+  "collisionRadius": 15,
+  "speed": 5,
+  "turnRate": 0.2,
+  "weaponId": "cannon",
+  "fireRate": 15,
+  "fireRange": 1500,
+  "fireCone": 0.7,
+  "bulletSpeed": 900,
+  "bulletDamage": 6,
+  "canMove": true,
+  "isSea": true
+}

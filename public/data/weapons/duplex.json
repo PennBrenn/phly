@@ -1,0 +1,20 @@
+{
+  "id": "duplex",
+  "name": "Duplex",
+  "type": "missile",
+  "speed": 240,
+  "maxAge": 7.0,
+  "turnRate": 2.4,
+  "gLimit": 26,
+  "damage": 30,
+  "lockRange": 1500,
+  "lockCone": 0.7,
+  "seekerTimeMin": 4,
+  "seekerTimeMax": 12,
+  "cooldown": 2.5,
+  "ammo": 3,
+  "poolSize": 8,
+  "price": 1500,
+  "submunitions": 3,
+  "model": null
+}

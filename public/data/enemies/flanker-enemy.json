@@ -1,0 +1,16 @@
+{
+  "id": "flanker-enemy",
+  "name": "Flanker",
+  "type": "air",
+  "description": "Medium jack of all trades aircraft. Guns and missiles.",
+  "model": "/models/enemies/flanker.glb",
+  "health": 100,
+  "maxSpeed": 320,
+  "pitchRate": 2.0,
+  "rollRate": 2.4,
+  "collisionRadius": 7,
+  "countermeasures": "basic",
+  "weapons": ["cannon", "sidewinder"],
+  "canFireMissiles": true,
+  "chaffAmmo": 4
+}

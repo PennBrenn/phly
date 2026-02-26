@@ -1,0 +1,20 @@
+{
+  "id": "birdshot",
+  "name": "Birdshot",
+  "type": "missile",
+  "speed": 280,
+  "maxAge": 6.5,
+  "turnRate": 2.5,
+  "gLimit": 28,
+  "damage": 25,
+  "lockRange": 1600,
+  "lockCone": 0.7,
+  "seekerTimeMin": 3,
+  "seekerTimeMax": 10,
+  "cooldown": 3.0,
+  "ammo": 2,
+  "poolSize": 10,
+  "price": 8000,
+  "submunitions": 5,
+  "model": null
+}

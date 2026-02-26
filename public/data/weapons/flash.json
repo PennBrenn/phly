@@ -1,0 +1,19 @@
+{
+  "id": "flash",
+  "name": "Flash",
+  "type": "missile",
+  "speed": 340,
+  "maxAge": 5.5,
+  "turnRate": 2.8,
+  "gLimit": 32,
+  "damage": 45,
+  "lockRange": 1800,
+  "lockCone": 0.65,
+  "seekerTimeMin": 3,
+  "seekerTimeMax": 10,
+  "cooldown": 2.0,
+  "ammo": 3,
+  "poolSize": 6,
+  "price": 2500,
+  "model": null
+}

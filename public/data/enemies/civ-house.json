@@ -1,0 +1,11 @@
+{
+  "id": "civ-house",
+  "name": "Civilian House",
+  "type": "target",
+  "description": "Static ground structure.",
+  "model": "/models/enemies/civ-house.glb",
+  "health": 40,
+  "collisionRadius": 8,
+  "isTarget": true,
+  "isGround": true
+}

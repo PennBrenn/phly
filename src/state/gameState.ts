@@ -64,12 +64,21 @@ export interface MissionBounds {
   warningMargin: number;
 }
 
+export interface RemotePlayerState {
+  peerId: string;
+  player: PlayerState;
+  planeId: string;
+  modelPath: string;
+  playerName: string;
+}
+
 export interface GameState {
   player: PlayerState;
   input: InputState;
   camera: CameraState;
   combat: CombatState;
   bounds: MissionBounds;
+  remotePlayers: RemotePlayerState[];
   time: {
     delta: number;
     elapsed: number;
@@ -113,6 +122,7 @@ export function createGameState(): GameState {
       useMouseAim: false,
     },
     combat: createCombatState(),
+    remotePlayers: [],
     bounds: {
       minX: -8000,
       maxX: 8000,

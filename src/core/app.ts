@@ -4,9 +4,10 @@ import { updateFlightPhysics } from '@/simulation/physics/flightPhysics';
 import { updateBulletSystem } from '@/simulation/combat/bulletSystem';
 import { updateMissileSystem } from '@/simulation/combat/missileSystem';
 import { updateCollisionSystem } from '@/simulation/combat/collisionSystem';
-import { spawnEnemies, spawnGroundEnemy, updateEnemyAI } from '@/simulation/ai/enemyAI';
+import { updateEnemyAI } from '@/simulation/ai/enemyAI';
 import { updateOOBSystem } from '@/simulation/physics/oobSystem';
-import { loadWeapon, loadMission, preloadMissionData } from '@/utils/dataLoader';
+import { loadWeapon, loadMission, preloadMissionData, loadPlane } from '@/utils/dataLoader';
+import type { MissionData, PlaneData } from '@/utils/dataLoader';
 import type { Difficulty } from '@/state/combatState';
 import { InputManager } from '@/input/inputManager';
 import { createScene, createLights, createTerrain } from '@/rendering/sceneSetup';
@@ -20,12 +21,30 @@ import { DamageVignette } from '@/rendering/damageVignette';
 import { ModelLoader } from '@/rendering/modelLoader';
 import { LoadingScreen } from '@/rendering/loadingScreen';
 import { ContrailSystem } from '@/rendering/contrailSystem';
-import { loadPlane } from '@/utils/dataLoader';
+import { ObjectiveTracker } from '@/rendering/hud/objectiveTracker';
 import { loadSettings, saveSettings, type Settings } from '@/core/settings';
 import { SettingsUI } from '@/ui/settingsUI';
 import { MainMenu } from '@/ui/mainMenu';
-
-const MODEL_PATH = '/models/planes/planes/delta.glb';
+import { PauseMenu } from '@/ui/pauseMenu';
+import { HangarUI } from '@/ui/hangar';
+import { LevelSelectUI } from '@/ui/levelSelect';
+import { MissionCompleteUI } from '@/ui/missionComplete';
+import { loadLevelManifest, applyMissionToState } from '@/levels/levelLoader';
+import type { LevelManifest } from '@/levels/levelLoader';
+import { loadEconomy, saveEconomy, calculateReward } from '@/state/economyState';
+import type { EconomyState } from '@/state/economyState';
+import { loadUpgradeState, saveUpgradeState } from '@/state/upgradeState';
+import type { UpgradeState } from '@/state/upgradeState';
+import { loadProgress, saveProgress, getMissionProgress } from '@/state/progressState';
+import type { ProgressState } from '@/state/progressState';
+import { PeerManager } from '@/networking/peerManager';
+import { encode, packPlayer, unpackPlayer } from '@/networking/protocol';
+import type { NetMessage, LoadoutPayload, PlayerStatePayload, EnemyStatePayload, EnemyNetState, KillEventPayload } from '@/networking/protocol';
+import { SyncTimer, createInterpBuffer, pushPlayerSnapshot, pushEnemySnapshot, interpolatePlayer, interpolateEnemies } from '@/networking/syncLoop';
+import type { InterpBuffer } from '@/networking/syncLoop';
+import { MultiplayerMenu } from '@/ui/multiplayerMenu';
+import { DisconnectOverlay } from '@/ui/disconnectOverlay';
+import type { RemotePlayerState } from '@/state/gameState';
 
 export class App {
   private renderer!: THREE.WebGLRenderer;
@@ -41,24 +60,54 @@ export class App {
   private combatRenderer!: CombatRenderer;
   private damageVignette!: DamageVignette;
   private contrailSystem!: ContrailSystem;
+  private objectiveTracker!: ObjectiveTracker;
   private settingsUI!: SettingsUI;
+  private pauseMenu!: PauseMenu;
   private mainMenu!: MainMenu;
+  private hangarUI!: HangarUI;
+  private levelSelectUI!: LevelSelectUI;
+  private missionCompleteUI!: MissionCompleteUI;
   private settings: Settings;
+  private economy!: EconomyState;
+  private upgrades!: UpgradeState;
+  private progress!: ProgressState;
+  private levels: LevelManifest[] = [];
   private started = false;
-  private gameStarted = false; // true after menu dismissed
+  private gameStarted = false;
   private wasDead = false;
   private crashOverlay!: HTMLDivElement;
+  private modelLoader!: ModelLoader;
+  private canvas!: HTMLCanvasElement;
+  // Mission tracking
+  private activeMission: MissionData | null = null;
+  private missionTimer = 0;
+  private missionAirKills = 0;
+  private missionGroundKills = 0;
+  private missionDamageTaken = 0;
+  private missionStartHealth = 100;
+  private prevAirKillCount = 0;
+  private prevGroundKillCount = 0;
+  // Cinematic menu camera
+  private menuCamAngle = 0;
+  // Networking
+  private peerManager: PeerManager | null = null;
+  private syncTimer = new SyncTimer();
+  private interpBuffer: InterpBuffer = createInterpBuffer();
+  private remotePlayerMesh: PlayerMesh | null = null;
+  private multiplayerMenu!: MultiplayerMenu;
+  private disconnectOverlay!: DisconnectOverlay;
+  private isMultiplayer = false;
 
   constructor() {
     this.settings = loadSettings();
+    this.economy = loadEconomy();
+    this.upgrades = loadUpgradeState();
+    this.progress = loadProgress();
     this.init().catch((err) => console.error('[App] init failed:', err));
   }
 
   private async init(): Promise<void> {
-    // Loading screen
     const loadingScreen = new LoadingScreen();
-
-    // Loading manager
     const manager = new THREE.LoadingManager();
     manager.onProgress = (_url, loaded, total) => {
       loadingScreen.setProgress(loaded / total);
@@ -70,10 +119,10 @@ export class App {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = this.settings.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    const canvas = this.renderer.domElement;
-    canvas.tabIndex = 0;
-    document.getElementById('app')!.appendChild(canvas);
-    canvas.focus();
+    this.canvas = this.renderer.domElement;
+    this.canvas.tabIndex = 0;
+    document.getElementById('app')!.appendChild(this.canvas);
+    this.canvas.focus();
 
     // Scene
     this.scene = createScene();
@@ -81,94 +130,40 @@ export class App {
     this.sun = sun;
     createTerrain(this.scene);
     createTerrainProps(this.scene, this.settings.treeDensity);
-
-    // Apply fog from settings
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.density = this.settings.fogDensity;
     }
 
     // Camera
-    this.cameraController = new CameraController(
-      window.innerWidth / window.innerHeight,
-    );
+    this.cameraController = new CameraController(window.innerWidth / window.innerHeight);
 
-    // Player mesh (starts with primitive fallback)
+    // Player mesh
     this.playerMesh = new PlayerMesh();
     this.scene.add(this.playerMesh.group);
+    this.playerMesh.group.visible = false;
 
-    // Try loading GLB model
-    const modelLoader = new ModelLoader(manager);
-    try {
-      const model = await modelLoader.load(MODEL_PATH, {
-        posX: this.settings.modelOffsetX,
-        posY: this.settings.modelOffsetY,
-        posZ: this.settings.modelOffsetZ,
-        rotX: this.settings.modelRotX,
-        rotY: this.settings.modelRotY,
-        rotZ: this.settings.modelRotZ,
-        scale: 1,
-      });
-      this.playerMesh.setModel(model);
-    } catch {
-      console.warn('Could not load plane model, using primitive fallback.');
-      // Trigger 100% progress since no model to load
-      loadingScreen.setProgress(1);
-    }
+    // Model loader
+    this.modelLoader = new ModelLoader(manager);
 
     // Post-processing
-    this.postProcessing = new PostProcessing(
-      this.renderer,
-      this.scene,
-      this.cameraController.camera,
-    );
+    this.postProcessing = new PostProcessing(this.renderer, this.scene, this.cameraController.camera);
     this.postProcessing.setBloomEnabled(this.settings.bloom);
 
-    // Combat renderer
+    // Combat renderer & vignette
     this.combatRenderer = new CombatRenderer(this.scene);
     this.damageVignette = new DamageVignette();
 
-    // Contrail / engine exhaust system
+    // Contrails
     this.contrailSystem = new ContrailSystem(this.scene);
-    // Load player plane data for engine offsets
-    try {
-      const planeData = await loadPlane('delta');
-      if (planeData.engines && planeData.engines.length > 0) {
-        this.contrailSystem.setEngineOffsets(planeData.engines);
-      }
-    } catch {
-      console.warn('[App] Could not load plane data for engine offsets, using defaults.');
-    }
 
-    // Pre-load weapon data so getWeaponSync works during gameplay
+    // Objective tracker
+    this.objectiveTracker = new ObjectiveTracker();
+    this.objectiveTracker.hide();
+
+    // Pre-load base weapon data
     await Promise.all([
-      loadWeapon('cannon'),
-      loadWeapon('sidewinder'),
-      loadWeapon('dart'),
-      loadWeapon('chaff'),
-    ]);
-
-    // Apply initial difficulty from settings
-    this.state.combat.difficulty = this.settings.difficulty as Difficulty;
-    this.state.combat.seeker.seekDuration = this.settings.seekerDuration;
-
-    // Load mission data and spawn enemies
-    try {
-      const mission = await loadMission('mission1');
-      await preloadMissionData(mission);
-      // Apply mission bounds
-      this.state.bounds = { ...mission.bounds };
-      // Spawn air enemies
-      spawnEnemies(this.state, mission.difficulty[this.settings.difficulty]?.airCount ?? 4);
-      // Spawn ground enemies
-      const groundCount = mission.difficulty[this.settings.difficulty]?.groundCount ?? 2;
-      for (let i = 0; i < Math.min(groundCount, mission.groundEnemies.length); i++) {
-        const ge = mission.groundEnemies[i];
-        spawnGroundEnemy(this.state, ge.position, ge.vehicleId, ge.moving, ge.patrolRadius);
-      }
-    } catch (err) {
-      console.warn('[App] Could not load mission, using default spawns:', err);
-      spawnEnemies(this.state, 4);
-    }
+      loadWeapon('cannon'), loadWeapon('chaff'), loadWeapon('mini'),
+    ]).catch(() => {});
 
     // Input
     this.inputManager = new InputManager();
@@ -180,26 +175,98 @@ export class App {
     this.crashOverlay = document.createElement('div');
     this.crashOverlay.id = 'crash-overlay';
     const os = this.crashOverlay.style;
-    os.position = 'fixed';
-    os.top = '0';
-    os.left = '0';
-    os.width = '100%';
-    os.height = '100%';
-    os.display = 'none';
-    os.zIndex = '150';
-    os.pointerEvents = 'none';
+    os.position = 'fixed'; os.top = '0'; os.left = '0'; os.width = '100%'; os.height = '100%';
+    os.display = 'none'; os.zIndex = '150'; os.pointerEvents = 'none';
     os.background = 'radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.7) 100%)';
-    os.fontFamily = "'Courier New', monospace";
-    os.color = '#ff4444';
-    os.textAlign = 'center';
-    os.justifyContent = 'center';
-    os.alignItems = 'center';
-    os.flexDirection = 'column';
+    os.fontFamily = "'Courier New', monospace"; os.color = '#ff4444'; os.textAlign = 'center';
+    os.justifyContent = 'center'; os.alignItems = 'center'; os.flexDirection = 'column';
     this.crashOverlay.innerHTML = '<div style="font-size:48px;font-weight:bold;text-shadow:0 0 20px rgba(255,0,0,0.5)">CRASHED</div><div style="font-size:16px;opacity:0.7;margin-top:12px">Respawning...</div>';
     document.getElementById('app')!.appendChild(this.crashOverlay);
 
     // Settings UI
     this.settingsUI = new SettingsUI(this.settings, (s) => this.applySettings(s));
+    // setOnClose is deferred via arrow function so mainMenu ref is resolved at call time
+    this.settingsUI.setOnClose(() => {
+      if (this.gameStarted && this.mainMenu && !this.mainMenu.isVisible()) this.pauseMenu.show();
+    });
+
+    // Pause menu
+    this.pauseMenu = new PauseMenu({
+      onResume: () => { this.canvas.focus(); },
+      onSettings: () => { this.settingsUI.show(); },
+      onMainMenu: () => { window.location.reload(); },
+    });
+
+    // Load level manifest
+    this.levels = await loadLevelManifest();
+
+    // Hangar UI
+    this.hangarUI = new HangarUI(this.upgrades, this.economy, {
+      onSelectPlane: (_id) => { saveUpgradeState(this.upgrades); },
+      onChangeLoadout: (_lo) => { saveUpgradeState(this.upgrades); },
+      onPurchasePlane: (id) => { this.buyPlane(id); },
+      onPurchaseWeapon: (id) => { this.buyWeapon(id); },
+      onConfirm: () => { this.levelSelectUI.show(); },
+      onBack: () => { this.mainMenu.show(); },
+    });
+    await this.hangarUI.preloadData();
+
+    // Level Select UI
+    this.levelSelectUI = new LevelSelectUI(this.levels, this.progress, {
+      onSelectLevel: (id) => { this.startMission(id); },
+      onBack: () => { this.hangarUI.show(); },
+    });
+
+    // Mission Complete UI
+    this.missionCompleteUI = new MissionCompleteUI(() => {
+      window.location.reload();
+    });
+
+    // Multiplayer Menu
+    this.multiplayerMenu = new MultiplayerMenu();
+
+    // Disconnect overlay
+    this.disconnectOverlay = new DisconnectOverlay(
+      () => {
+        // Continue solo
+        this.isMultiplayer = false;
+        this.syncTimer.stop();
+        this.peerManager?.disconnect();
+        this.peerManager = null;
+        this.removeRemotePlayer();
+        this.canvas.focus();
+      },
+      () => {
+        // Quit to menu
+        window.location.reload();
+      },
+    );
+
+    // Debug callbacks
+    this.settingsUI.setDebugCallbacks({
+      onUnlockAll: () => {
+        for (const p of this.upgrades.planes) p.unlocked = true;
+        for (const w of this.upgrades.weapons) w.unlocked = true;
+        this.progress.unlockedMissionIds = this.levels.map(l => l.id);
+        this.economy.credits = Math.max(this.economy.credits, 99999);
+        saveUpgradeState(this.upgrades);
+        saveEconomy(this.economy);
+        saveProgress(this.progress);
+        this.hangarUI.updateUpgrades(this.upgrades);
+        this.hangarUI.updateEconomy(this.economy);
+      },
+      onResetProgress: () => {
+        localStorage.removeItem('phly-economy');
+        localStorage.removeItem('phly-upgrades');
+        localStorage.removeItem('phly-progress');
+        window.location.reload();
+      },
+      onSkipMission: () => {
+        if (this.activeMission) {
+          this.completeMission(true);
+        }
+      },
+    });
 
     // Clock
     this.clock = new THREE.Clock();
@@ -207,45 +274,400 @@ export class App {
     // Resize
     window.addEventListener('resize', this.onResize);
 
-    // Prevent Tab from switching focus
+    // Escape key handling
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Tab') e.preventDefault();
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        const anyMenuOpen = this.hangarUI?.isVisible() || this.levelSelectUI?.isVisible()
+          || this.missionCompleteUI?.isVisible() || this.mainMenu?.isVisible()
+          || this.multiplayerMenu?.isVisible() || this.disconnectOverlay?.isVisible();
+        if (this.settingsUI.isVisible()) {
+          this.settingsUI.hide();
+          // Only show pause if we're mid-game (no other overlay open)
+          if (this.gameStarted && !anyMenuOpen) this.pauseMenu.show();
+        } else if (this.pauseMenu.isVisible()) {
+          this.pauseMenu.hide();
+          this.canvas.focus();
+        } else if (this.gameStarted && !anyMenuOpen) {
+          this.pauseMenu.show();
+        }
+      }
     });
 
-    // Hide loading screen, show main menu
+    // Apply difficulty
+    this.state.combat.difficulty = this.settings.difficulty as Difficulty;
+    this.state.combat.seeker.seekDuration = this.settings.seekerDuration;
+
     loadingScreen.hide();
     this.started = true;
 
-    // Main menu — game loop starts but simulation paused until menu dismissed
+    // Main menu with cinematic flyby
     this.mainMenu = new MainMenu(() => {
-      this.gameStarted = true;
-      this.clock.getDelta(); // flush accumulated delta
-      canvas.focus();
+      this.hangarUI.show();
     });
-    this.mainMenu.onSettingsClick(() => {
-      this.settingsUI.toggle();
-    });
+    this.mainMenu.onSettingsClick(() => { this.settingsUI.toggle(); });
+    this.mainMenu.onMultiplayerClick(() => { this.openMultiplayerMenu(); });
 
     this.loop();
+  }
+
+  private buyPlane(planeId: string): void {
+    const pu = this.upgrades.planes.find(p => p.planeId === planeId);
+    if (!pu || pu.unlocked) return;
+    if (this.economy.credits < pu.purchasePrice) return;
+    this.economy.credits -= pu.purchasePrice;
+    pu.unlocked = true;
+    saveEconomy(this.economy);
+    saveUpgradeState(this.upgrades);
+    this.hangarUI.updateEconomy(this.economy);
+    this.hangarUI.updateUpgrades(this.upgrades);
+  }
+
+  private buyWeapon(weaponId: string): void {
+    const wu = this.upgrades.weapons.find(w => w.weaponId === weaponId);
+    if (!wu || wu.unlocked) return;
+    if (this.economy.credits < wu.purchasePrice) return;
+    this.economy.credits -= wu.purchasePrice;
+    wu.unlocked = true;
+    saveEconomy(this.economy);
+    saveUpgradeState(this.upgrades);
+    this.hangarUI.updateEconomy(this.economy);
+    this.hangarUI.updateUpgrades(this.upgrades);
+  }
+
+  private async startMission(missionId: string): Promise<void> {
+    try {
+      const mission = await loadMission(missionId);
+      await preloadMissionData(mission);
+      this.activeMission = mission;
+
+      // Load selected plane data and apply stats
+      const planeId = this.upgrades.loadout.planeId;
+      let planeData: PlaneData | null = null;
+      try { planeData = await loadPlane(planeId); } catch { /* fallback */ }
+
+      // Apply plane stats to game state
+      if (planeData) {
+        this.state.player.health = planeData.health;
+        this.missionStartHealth = planeData.health;
+        // Set engine offsets
+        if (planeData.engines?.length) {
+          this.contrailSystem.setEngineOffsets(planeData.engines);
+        }
+      }
+
+      // Apply loadout weapon slots
+      const lo = this.upgrades.loadout;
+      this.state.combat.weaponSlots = lo.weaponSlots.map(ws => ({
+        slot: ws.slot,
+        weaponId: ws.weaponId,
+        ammo: ws.weaponId === 'cannon' ? -1 : ws.weaponId === 'chaff' ? 12 : 2,
+        cooldown: 0,
+      }));
+      this.state.combat.selectedSlot = 1;
+
+      // Pre-load loadout weapons
+      for (const ws of lo.weaponSlots) {
+        try { await loadWeapon(ws.weaponId); } catch { /* skip */ }
+      }
+
+      // Try loading plane model
+      try {
+        const modelPath = planeData?.model ?? `/models/planes/${planeId}.glb`;
+        const model = await this.modelLoader.load(modelPath, {
+          posX: this.settings.modelOffsetX, posY: this.settings.modelOffsetY,
+          posZ: this.settings.modelOffsetZ, rotX: this.settings.modelRotX,
+          rotY: this.settings.modelRotY, rotZ: this.settings.modelRotZ, scale: 1,
+        });
+        this.playerMesh.setModel(model);
+      } catch {
+        console.warn('[App] Could not load plane model, using primitive fallback.');
+      }
+
+      // Apply mission to state
+      applyMissionToState(this.state, mission, this.settings.difficulty);
+
+      // Setup objectives
+      if (mission.objectives?.length) {
+        this.objectiveTracker.setObjectives(mission.objectives);
+        this.objectiveTracker.show();
+      }
+
+      // Reset mission trackers
+      this.missionTimer = 0;
+      this.missionAirKills = 0;
+      this.missionGroundKills = 0;
+      this.missionDamageTaken = 0;
+      this.prevAirKillCount = 0;
+      this.prevGroundKillCount = 0;
+
+      // Increment attempt count
+      const mp = getMissionProgress(this.progress, missionId);
+      mp.attempts++;
+      saveProgress(this.progress);
+
+      // Start the game
+      this.gameStarted = true;
+      this.playerMesh.group.visible = true;
+      if (this.remotePlayerMesh) this.remotePlayerMesh.group.visible = true;
+      this.clock.getDelta();
+      this.canvas.focus();
+
+      // Start multiplayer sync if connected
+      if (this.isMultiplayer && this.peerManager) {
+        this.startSyncLoop();
+        // Re-send loadout now that mission is starting
+        const lo: LoadoutPayload = {
+          planeId: this.upgrades.loadout.planeId,
+          modelPath: `/models/planes/${this.upgrades.loadout.planeId}.glb`,
+          weaponSlots: this.upgrades.loadout.weaponSlots.map(ws => ({ slot: ws.slot, weaponId: ws.weaponId })),
+          playerName: 'Player',
+        };
+        this.peerManager.send(encode('loadout_sync', lo));
+      }
+    } catch (err) {
+      console.error('[App] Failed to start mission:', err);
+    }
+  }
+
+  private completeMission(won: boolean): void {
+    if (!this.activeMission) return;
+    const mission = this.activeMission;
+    this.gameStarted = false;
+    this.syncTimer.stop();
+    if (this.remotePlayerMesh) this.remotePlayerMesh.group.visible = false;
+
+    if (won) {
+      const reward = calculateReward(
+        mission.rewards?.credits ?? 500,
+        mission.rewards?.score ?? 1000,
+        this.missionAirKills,
+        this.missionGroundKills,
+        this.missionDamageTaken,
+        this.missionTimer,
+        mission.timeLimitSeconds ?? 300,
+        this.missionStartHealth,
+      );
+
+      // Apply rewards
+      this.economy.credits += reward.credits;
+      this.economy.totalScore += reward.score;
+      this.economy.missionsCompleted++;
+      this.economy.killsAir += this.missionAirKills;
+      this.economy.killsGround += this.missionGroundKills;
+      saveEconomy(this.economy);
+
+      // Update progress
+      const mp = getMissionProgress(this.progress, mission.id);
+      mp.completed = true;
+      if (!mp.bestGrade || reward.grade < mp.bestGrade) mp.bestGrade = reward.grade;
+      if (mp.bestTime === 0 || this.missionTimer < mp.bestTime) mp.bestTime = this.missionTimer;
+
+      // Unlock next mission
+      const sorted = [...this.levels].sort((a, b) => a.order - b.order);
+      const idx = sorted.findIndex(l => l.id === mission.id);
+      if (idx >= 0 && idx + 1 < sorted.length) {
+        const nextId = sorted[idx + 1].id;
+        if (!this.progress.unlockedMissionIds.includes(nextId)) {
+          this.progress.unlockedMissionIds.push(nextId);
+        }
+      }
+      saveProgress(this.progress);
+
+      this.missionCompleteUI.showWin(mission.name, reward);
+    } else {
+      this.missionCompleteUI.showLose(mission.name);
+    }
+
+    this.objectiveTracker.hide();
+    this.activeMission = null;
+  }
+
+  // ─── Multiplayer ─────────────────────────────────────────────────────────────
+
+  private async openMultiplayerMenu(): Promise<void> {
+    const result = await this.multiplayerMenu.prompt();
+    if (result.action === 'back') {
+      this.mainMenu.show();
+      return;
+    }
+
+    this.peerManager = new PeerManager({
+      onConnected: (remotePeerId) => {
+        console.log('[MP] Peer connected:', remotePeerId);
+        // Send our loadout
+        const lo: LoadoutPayload = {
+          planeId: this.upgrades.loadout.planeId,
+          modelPath: `/models/planes/${this.upgrades.loadout.planeId}.glb`,
+          weaponSlots: this.upgrades.loadout.weaponSlots.map(ws => ({ slot: ws.slot, weaponId: ws.weaponId })),
+          playerName: 'Player',
+        };
+        this.peerManager!.send(encode('loadout_sync', lo));
+        this.multiplayerMenu.hide();
+        this.isMultiplayer = true;
+        // Go to hangar for loadout selection
+        this.hangarUI.show();
+      },
+      onMessage: (msg) => this.handleNetMessage(msg),
+      onDisconnected: (_remotePeerId) => {
+        console.log('[MP] Peer disconnected');
+        if (this.gameStarted && this.isMultiplayer) {
+          this.disconnectOverlay.show();
+        }
+      },
+      onError: (err) => {
+        console.error('[MP] Error:', err);
+        this.multiplayerMenu.showError('Connection failed: ' + err);
+      },
+    });
+
+    if (result.action === 'host') {
+      try {
+        const code = await this.peerManager.hostRoom();
+        this.multiplayerMenu.showHostWaiting(code);
+      } catch {
+        this.multiplayerMenu.showError('Failed to create room');
+      }
+    } else if (result.action === 'join') {
+      this.multiplayerMenu.showConnecting();
+      try {
+        await this.peerManager.joinRoom(result.code);
+      } catch {
+        this.multiplayerMenu.showError('Failed to join room');
+      }
+    }
+  }
+
+  private handleNetMessage(msg: NetMessage): void {
+    switch (msg.t) {
+      case 'loadout_sync': {
+        const lo = msg.d as LoadoutPayload;
+        this.spawnRemotePlayer(lo);
+        break;
+      }
+      case 'player_state': {
+        const ps = msg.d as PlayerStatePayload;
+        pushPlayerSnapshot(this.interpBuffer, msg.ts, ps);
+        break;
+      }
+      case 'enemy_state': {
+        const es = msg.d as EnemyStatePayload;
+        pushEnemySnapshot(this.interpBuffer, msg.ts, es.enemies);
+        break;
+      }
+      case 'kill_event': {
+        const ke = msg.d as KillEventPayload;
+        const enemy = this.state.combat.enemies.find(e => e.id === ke.enemyId);
+        if (enemy && enemy.aiMode !== 'destroyed') {
+          enemy.aiMode = 'destroyed';
+          enemy.health = 0;
+          enemy.destroyedTimer = 0;
+        }
+        break;
+      }
+      case 'mission_start': {
+        // Client receives mission start from host (future: auto-sync mission selection)
+        break;
+      }
+      case 'ping': {
+        this.peerManager?.send(encode('pong', null));
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  private startSyncLoop(): void {
+    this.syncTimer.start(20, () => {
+      if (!this.peerManager || !this.gameStarted) return;
+
+      // Send our player state
+      const ps = packPlayer(this.state.player);
+      this.peerManager.send(encode('player_state', ps));
+
+      // Host also broadcasts enemy state
+      if (this.peerManager.isHost) {
+        const enemies: EnemyNetState[] = this.state.combat.enemies
+          .filter(e => e.aiMode !== 'destroyed')
+          .map(e => ({
+            id: e.id,
+            p: e.position,
+            r: e.rotation,
+            v: e.velocity,
+            spd: e.speed,
+            hp: e.health,
+            mode: e.aiMode,
+            isGround: e.isGround,
+          }));
+        const payload: EnemyStatePayload = { enemies };
+        this.peerManager.send(encode('enemy_state', payload));
+      }
+    });
+  }
+
+  private async spawnRemotePlayer(loadout: LoadoutPayload): Promise<void> {
+    // Create remote player state
+    const rp: RemotePlayerState = {
+      peerId: 'remote',
+      player: {
+        position: { x: 50, y: 2500, z: 0 },
+        rotation: { x: 0, y: 0, z: 0, w: 1 },
+        velocity: { x: 0, y: 0, z: -90 },
+        speed: 90,
+        altitude: 2500,
+        throttle: 1,
+        health: 100,
+        isStalling: false,
+        smoothPitch: 0, smoothYaw: 0, smoothRoll: 0,
+        gForce: 1,
+        isDead: false,
+        crashTimer: 0,
+        afterburner: false,
+        afterburnerFuel: 1.0,
+      },
+      planeId: loadout.planeId,
+      modelPath: loadout.modelPath,
+      playerName: loadout.playerName,
+    };
+
+    this.state.remotePlayers = [rp];
+
+    // Create remote player mesh
+    this.remotePlayerMesh = new PlayerMesh();
+    this.scene.add(this.remotePlayerMesh.group);
+    this.remotePlayerMesh.group.visible = false;
+
+    // Try loading remote player's plane model
+    try {
+      const model = await this.modelLoader.load(loadout.modelPath);
+      this.remotePlayerMesh.setModel(model);
+    } catch {
+      console.warn('[MP] Could not load remote plane model, using primitive.');
+    }
+
+    // Reset interpolation buffer
+    this.interpBuffer = createInterpBuffer();
+  }
+
+  private removeRemotePlayer(): void {
+    if (this.remotePlayerMesh) {
+      this.scene.remove(this.remotePlayerMesh.group);
+      this.remotePlayerMesh = null;
+    }
+    this.state.remotePlayers = [];
   }
 
   private applySettings(s: Settings): void {
     this.settings = s;
     saveSettings(s);
-
-    // Shadows
     this.renderer.shadowMap.enabled = s.shadows;
     this.sun.castShadow = s.shadows;
-
-    // Bloom
     this.postProcessing.setBloomEnabled(s.bloom);
-
-    // Fog
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.density = s.fogDensity;
     }
-
-    // Model offsets (debug)
     const inner = this.playerMesh.getInnerModel();
     if (inner) {
       inner.position.set(s.modelOffsetX, s.modelOffsetY, s.modelOffsetZ);
@@ -261,58 +683,126 @@ export class App {
     this.state.time.delta = dt;
     this.state.time.elapsed += dt;
 
-    // Apply settings to state each frame
     this.state.input.useMouseAim = this.settings.useMouseAim;
     this.state.combat.difficulty = this.settings.difficulty as Difficulty;
     this.state.combat.seeker.seekDuration = this.settings.seekerDuration;
 
-    // Skip input/simulation when menu or settings panel is open
-    const paused = !this.gameStarted || this.settingsUI.isVisible();
-    if (!paused) {
-      // 1. Input → state
-      this.inputManager.update(this.state);
+    // Apply cheats
+    if (this.settings.cheatInfCredits) {
+      this.economy.credits = 99999;
+    }
+    if (this.settings.cheatGodMode && this.gameStarted) {
+      this.state.player.health = Math.max(this.state.player.health, 100);
+      this.state.player.isDead = false;
+    }
 
-      // Weapon slot selection
+    // Check if any overlay is up
+    const anyOverlay = this.hangarUI.isVisible() || this.levelSelectUI.isVisible()
+      || this.settingsUI.isVisible() || this.pauseMenu.isVisible()
+      || this.missionCompleteUI.isVisible() || this.multiplayerMenu?.isVisible()
+      || this.disconnectOverlay?.isVisible();
+    const paused = !this.gameStarted || anyOverlay || this.mainMenu.isVisible();
+
+    if (!paused) {
+      // Input
+      this.inputManager.update(this.state);
       if (this.state.input.selectSlot > 0) {
-        const slotExists = this.state.combat.weaponSlots.some(
-          ws => ws.slot === this.state.input.selectSlot,
-        );
-        if (slotExists) {
-          this.state.combat.selectedSlot = this.state.input.selectSlot;
-        }
+        const slotExists = this.state.combat.weaponSlots.some(ws => ws.slot === this.state.input.selectSlot);
+        if (slotExists) this.state.combat.selectedSlot = this.state.input.selectSlot;
       }
 
-      // 2. Simulation (state only, no Three.js)
+      // Simulation
       updateFlightPhysics(this.state);
       updateBulletSystem(this.state);
       updateMissileSystem(this.state);
       updateEnemyAI(this.state);
       updateCollisionSystem(this.state);
       updateOOBSystem(this.state);
+
+      // Mission tracking
+      if (this.activeMission) {
+        this.missionTimer += dt;
+
+        // Count kills
+        const destroyed = this.state.combat.enemies.filter(e => e.aiMode === 'destroyed');
+        const airDestroyed = destroyed.filter(e => !e.isGround).length;
+        const groundDestroyed = destroyed.filter(e => e.isGround).length;
+        this.missionAirKills = airDestroyed;
+        this.missionGroundKills = groundDestroyed;
+
+        // Track damage
+        this.missionDamageTaken = this.missionStartHealth - this.state.player.health;
+
+        // Update objective progress
+        if (this.activeMission.objectives) {
+          for (const obj of this.activeMission.objectives) {
+            if (obj.type === 'destroy_air') {
+              this.objectiveTracker.updateProgress(obj.id, airDestroyed);
+            } else if (obj.type === 'destroy_ground') {
+              this.objectiveTracker.updateProgress(obj.id, groundDestroyed);
+            } else if (obj.type === 'survive') {
+              this.objectiveTracker.updateProgress(obj.id, this.state.player.isDead ? 0 : 1);
+            }
+          }
+        }
+
+        // Timer
+        const timeLimit = this.activeMission.timeLimitSeconds ?? 300;
+        this.objectiveTracker.updateTimer(timeLimit - this.missionTimer);
+
+        // Check win condition
+        if (this.objectiveTracker.allComplete()) {
+          this.completeMission(true);
+        }
+
+        // Check time-up loss
+        if (this.missionTimer > timeLimit) {
+          this.completeMission(false);
+        }
+      }
     }
 
-    // ── Crash transitions ──────────────────────────────────────────────────
+    // Crash transitions
     const isDead = this.state.player.isDead;
     if (isDead && !this.wasDead) {
-      // Just died — trigger shake, show overlay
       this.cameraController.shake(3.5);
       this.crashOverlay.style.display = 'flex';
     } else if (!isDead && this.wasDead) {
-      // Just respawned — hide overlay, reset camera
       this.crashOverlay.style.display = 'none';
       this.cameraController.resetTracking();
     }
     this.wasDead = isDead;
 
-    // Hide player mesh when dead
-    this.playerMesh.group.visible = !isDead;
+    // Cinematic menu camera when not in game
+    if (!this.gameStarted) {
+      this.menuCamAngle += dt * 0.08;
+      const r = 800;
+      const camX = Math.cos(this.menuCamAngle) * r;
+      const camZ = Math.sin(this.menuCamAngle) * r;
+      this.cameraController.camera.position.set(camX, 400 + Math.sin(this.menuCamAngle * 0.5) * 100, camZ);
+      this.cameraController.camera.lookAt(0, 200, 0);
+    } else {
+      this.playerMesh.group.visible = !isDead;
+      this.playerMesh.syncToState(this.state.player);
+      this.cameraController.update(this.state, this.playerMesh.group);
 
-    // 3. Rendering (reads state → Three.js)
-    this.playerMesh.syncToState(this.state.player);
-    this.cameraController.update(this.state, this.playerMesh.group);
+      // Remote player interpolation + rendering
+      if (this.isMultiplayer && this.remotePlayerMesh && this.state.remotePlayers.length > 0) {
+        const rp = this.state.remotePlayers[0];
+        const hasData = interpolatePlayer(this.interpBuffer, Date.now(), rp.player);
+        this.remotePlayerMesh.group.visible = hasData && !rp.player.isDead;
+        if (hasData) {
+          this.remotePlayerMesh.syncToState(rp.player);
+        }
+        // Client: interpolate enemies from host snapshots
+        if (this.peerManager?.isClient) {
+          interpolateEnemies(this.interpBuffer, Date.now(), this.state.combat.enemies);
+        }
+      }
+    }
 
-    // Update shadow camera to follow player
-    if (this.settings.shadows) {
+    // Shadow camera follow
+    if (this.settings.shadows && this.gameStarted) {
       this.sun.position.set(
         this.state.player.position.x + 600,
         this.state.player.position.y + 1500,
@@ -330,8 +820,8 @@ export class App {
     this.combatRenderer.update(this.state);
     this.damageVignette.update(this.state.combat.playerDamageFlash);
 
-    // Engine exhaust particles
-    if (!isDead) {
+    // Contrails
+    if (this.gameStarted && !isDead) {
       this.contrailSystem.update(
         dt,
         this.playerMesh.group.position,
@@ -342,9 +832,11 @@ export class App {
       );
     }
 
-    this.hud.update(this.state, this.cameraController.camera);
+    if (this.gameStarted) {
+      this.hud.update(this.state, this.cameraController.camera);
+    }
 
-    // Render via post-processing pipeline
+    this.postProcessing.updateSunPosition(this.sun.position);
     this.postProcessing.render();
   };
 

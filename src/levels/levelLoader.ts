@@ -1,45 +1,54 @@
-/**
- * Level Loader — loads level/mission JSON and spawns entities into state.
- * 
- * Future: will support campaign progression, unlockable levels,
- * and dynamic mission generation.
- */
-
 import type { GameState } from '@/state/gameState';
 import type { MissionData } from '@/utils/dataLoader';
+import { spawnEnemies, spawnGroundEnemy } from '@/simulation/ai/enemyAI';
 
 export interface LevelManifest {
   id: string;
   name: string;
   description: string;
-  missionFile: string;  // path to mission JSON
-  thumbnail?: string;   // preview image path
+  biome?: string;
+  missionFile: string;
+  thumbnail?: string;
   unlocked: boolean;
-  requiredScore?: number; // score needed to unlock
-  order: number;          // display order in level select
+  requiredScore?: number;
+  order: number;
 }
 
 /** Loads a level manifest listing all available levels. */
 export async function loadLevelManifest(): Promise<LevelManifest[]> {
-  // TODO: fetch from /data/levels/manifest.json
+  try {
+    const resp = await fetch('/data/levels/manifest.json');
+    if (resp.ok) return await resp.json();
+  } catch { /* fallback */ }
   return [
-    {
-      id: 'mission1',
-      name: 'Valley Patrol',
-      description: 'Engage enemy fighters and ground forces in the valley.',
-      missionFile: '/missions/mission1.json',
-      unlocked: true,
-      order: 0,
-    },
+    { id: 'mission1', name: 'Valley Patrol', description: 'Default mission.', missionFile: '/missions/mission1.json', unlocked: true, order: 0 },
   ];
 }
 
 /** Applies mission data to game state (spawns, bounds, player position). */
 export function applyMissionToState(
-  _state: GameState,
-  _mission: MissionData,
-  _difficulty: string,
+  state: GameState,
+  mission: MissionData,
+  difficulty: string,
 ): void {
-  // TODO: implement full mission application
-  // This will replace the inline mission loading in App.ts
+  // Apply bounds
+  state.bounds = { ...mission.bounds };
+
+  // Apply player spawn
+  state.player.position = { ...mission.playerSpawn.position };
+  state.player.rotation = { ...mission.playerSpawn.rotation };
+  state.player.velocity = { x: 0, y: 0, z: -mission.playerSpawn.speed };
+  state.player.speed = mission.playerSpawn.speed;
+
+  // Spawn air enemies
+  const diffTuning = mission.difficulty[difficulty];
+  const airCount = diffTuning?.airCount ?? 4;
+  spawnEnemies(state, airCount);
+
+  // Spawn ground enemies
+  const groundCount = diffTuning?.groundCount ?? 2;
+  for (let i = 0; i < Math.min(groundCount, mission.groundEnemies.length); i++) {
+    const ge = mission.groundEnemies[i];
+    spawnGroundEnemy(state, ge.position, ge.vehicleId, ge.moving, ge.patrolRadius);
+  }
 }
