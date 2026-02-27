@@ -273,7 +273,7 @@ export class LevelEditor {
     // Status bar
     this.statusBar = document.createElement('div');
     this.statusBar.className = 'ed-status';
-    this.statusBar.textContent = 'Ready — Click catalog item then click grid to place. WASD: Pan | Scroll: Zoom | Middle-drag: Rotate';
+    this.statusBar.textContent = 'Ready — Click catalog item then click grid to place. WASD: Pan | Scroll: Zoom | Right-drag: Rotate';
     root.appendChild(this.statusBar);
 
     // Toolbar events
@@ -735,8 +735,15 @@ export class LevelEditor {
     
     if (item.type === 'ground_enemy') {
       // Sample terrain height for ground objects
-      actualY = getTerrainHeight(worldPos.x, worldPos.z);
-      meshY = actualY + 20; // Slight visual offset above terrain
+      if (item.vehicleId === 'boat' || item.vehicleId === 'cruiser' || item.vehicleId === 'carrier') {
+        // Naval vessels: place at sea level (0), not seabed
+        actualY = 0;
+        meshY = 20; // Slight visual offset above water
+      } else {
+        // Land vehicles: use terrain height
+        actualY = getTerrainHeight(worldPos.x, worldPos.z);
+        meshY = actualY + 20; // Slight visual offset above terrain
+      }
     } else if (item.type === 'air_enemy') {
       // Air enemies: mesh Y = actual altitude for proper visualization
       meshY = actualY;
@@ -823,8 +830,8 @@ export class LevelEditor {
     window.addEventListener('keyup', e => { this.keys.delete(e.key.toLowerCase()); });
 
     canvas.addEventListener('mousedown', e => {
-      if (e.button === 1) {
-        // Middle click: rotate camera
+      if (e.button === 2) {
+        // Right click: rotate camera
         this.isMiddleDown = true;
         this.lastMouseX = e.clientX;
         this.lastMouseY = e.clientY;
@@ -871,7 +878,7 @@ export class LevelEditor {
     });
 
     canvas.addEventListener('mouseup', e => {
-      if (e.button === 1) this.isMiddleDown = false;
+      if (e.button === 2) this.isMiddleDown = false;
       if (e.button === 0 && this.isDragging) {
         this.isDragging = false;
         this.updatePropPanel();
