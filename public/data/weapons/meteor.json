@@ -1,6 +1,6 @@
 {
   "id": "meteor",
-  "name": "Meteor",
+  "name": "Comet",
   "type": "missile",
   "speed": 260,
   "maxAge": 7.0,

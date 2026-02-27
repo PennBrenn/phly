@@ -1,6 +1,6 @@
 {
   "id": "sidewinder",
-  "name": "AIM-9 Sidewinder",
+  "name": "Talon",
   "type": "missile",
   "speed": 250,
   "maxAge": 8.0,

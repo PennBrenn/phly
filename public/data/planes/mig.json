@@ -1,6 +1,6 @@
 {
   "id": "mig",
-  "name": "MiG-21 Fishbed",
+  "name": "Stingray",
   "model": "/models/enemy/mig.glb",
   "mass": 5800,
   "maxThrust": 42000,

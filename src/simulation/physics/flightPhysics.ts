@@ -16,10 +16,10 @@ import { getTerrainHeight } from '@/utils/terrain';
 import { spawnExplosion } from '@/simulation/combat/collisionSystem';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ─── Aircraft parameters (F-5E Tiger II inspired) ────────────────────────────
+// ─── Aircraft parameters (light fighter baseline) ────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 const MASS = 7000;             // kg  empty+fuel
-const MAX_THRUST_SL = 50000;   // N   static sea-level thrust (two J85 engines)
+const MAX_THRUST_SL = 50000;   // N   static sea-level thrust (twin engines)
 const WING_AREA = 17.3;        // m²
 const WING_SPAN = 8.1;         // m
 const ASPECT_RATIO = WING_SPAN * WING_SPAN / WING_AREA;

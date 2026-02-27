@@ -1,6 +1,6 @@
 {
   "id": "gbu12",
-  "name": "GBU-12 Guided Bomb",
+  "name": "Anvil Bomb",
   "type": "bomb",
   "damage": 120,
   "blastRadius": 40,

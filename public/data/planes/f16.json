@@ -1,6 +1,6 @@
 {
   "id": "f16",
-  "name": "F-16 Viper",
+  "name": "Spectre",
   "model": "/models/enemy/f16.glb",
   "mass": 8500,
   "maxThrust": 76000,

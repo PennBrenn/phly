@@ -1,6 +1,6 @@
 {
   "id": "su27",
-  "name": "Su-27 Flanker",
+  "name": "Wyvern",
   "model": "/models/enemy/su27.glb",
   "mass": 16500,
   "maxThrust": 110000,
