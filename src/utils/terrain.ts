@@ -1,8 +1,8 @@
 import { createNoise2D } from 'simplex-noise';
 
 // ─── Terrain constants ───────────────────────────────────────────────────────
-export const TERRAIN_SIZE = 20000;
-export const TERRAIN_SEGMENTS = 512;
+export const TERRAIN_SIZE = 40000;  // 40km x 40km (doubled from 20km)
+export const TERRAIN_SEGMENTS = 1024;  // Higher detail for larger terrain
 export const HEIGHT_SCALE = 3200;
 
 // ─── Seed-based PRNG (deterministic terrain across reloads) ──────────────────

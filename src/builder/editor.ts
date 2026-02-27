@@ -44,7 +44,7 @@ const CATALOG: CatalogItem[] = [
 // ─── Default Level Data ──────────────────────────────────────────────────────
 
 function defaultBounds(): MissionBounds {
-  return { minX: -8000, maxX: 8000, minZ: -8000, maxZ: 8000, ceiling: 6000, warningMargin: 500 };
+  return { minX: -20000, maxX: 20000, minZ: -20000, maxZ: 20000, ceiling: 6000, warningMargin: 500 };
 }
 
 function defaultDifficulty(): Record<string, DifficultyTuning> {
@@ -313,7 +313,7 @@ export class LevelEditor {
 
     const boundsInput = this.toolbar.querySelector('#ed-bounds') as HTMLInputElement;
     boundsInput.addEventListener('change', () => {
-      const v = parseInt(boundsInput.value) || 8000;
+      const v = parseInt(boundsInput.value) || 20000;
       this.bounds = { minX: -v, maxX: v, minZ: -v, maxZ: v, ceiling: this.bounds.ceiling, warningMargin: 500 };
       this.buildBounds();
     });
@@ -628,8 +628,8 @@ export class LevelEditor {
 
     setTerrainSeed(this.terrainSeed);
 
-    const size = 16000;
-    const segs = 200;
+    const size = 40000;  // Match new terrain size
+    const segs = 400;   // Higher segments for better detail
     const geo = new THREE.PlaneGeometry(size, size, segs, segs);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position;
@@ -686,7 +686,7 @@ export class LevelEditor {
     this.scene.add(this.terrainMesh);
 
     // Water plane
-    const waterGeo = new THREE.PlaneGeometry(20000, 20000);
+    const waterGeo = new THREE.PlaneGeometry(60000, 60000);  // 1.5x terrain size
     waterGeo.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshLambertMaterial({ color: 0x1a3a5a, transparent: true, opacity: 0.6 });
     const water = new THREE.Mesh(waterGeo, waterMat);
@@ -700,7 +700,7 @@ export class LevelEditor {
 
   private buildGrid(): void {
     if (this.gridHelper) this.scene.remove(this.gridHelper);
-    this.gridHelper = new THREE.GridHelper(16000, 160, 0x2a2a4a, 0x1a1a3a);
+    this.gridHelper = new THREE.GridHelper(40000, 400, 0x2a2a4a, 0x1a1a3a);
     this.gridHelper.position.y = 1;
     this.scene.add(this.gridHelper);
   }

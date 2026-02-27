@@ -50,8 +50,8 @@ export class CloudSystem {
       }
 
       // Position clouds in the sky
-      const x = (rng() - 0.5) * 16000;
-      const z = (rng() - 0.5) * 16000;
+      const x = (rng() - 0.5) * 32000;  // Doubled for 40km terrain
+      const z = (rng() - 0.5) * 32000;
       const y = 400 + rng() * 600; // Clouds between 400-1000m altitude
       
       cloud.position.set(x, y, z);
@@ -85,10 +85,10 @@ export class CloudSystem {
       cloud.position.z += dt * 1;
       
       // Wrap around if too far from player
-      if (cloud.position.x - playerPos.x > 10000) cloud.position.x -= 20000;
-      if (cloud.position.x - playerPos.x < -10000) cloud.position.x += 20000;
-      if (cloud.position.z - playerPos.z > 10000) cloud.position.z -= 20000;
-      if (cloud.position.z - playerPos.z < -10000) cloud.position.z += 20000;
+      if (cloud.position.x - playerPos.x > 20000) cloud.position.x -= 40000;
+      if (cloud.position.x - playerPos.x < -20000) cloud.position.x += 40000;
+      if (cloud.position.z - playerPos.z > 20000) cloud.position.z -= 40000;
+      if (cloud.position.z - playerPos.z < -20000) cloud.position.z += 40000;
     }
   }
 

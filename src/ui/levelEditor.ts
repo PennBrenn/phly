@@ -26,7 +26,7 @@ export function createEditorState(): EditorState {
   return {
     missionId: 'custom_1',
     missionName: 'Custom Mission',
-    bounds: { minX: -8000, maxX: 8000, minZ: -8000, maxZ: 8000, ceiling: 6000 },
+    bounds: { minX: -20000, maxX: 20000, minZ: -20000, maxZ: 20000, ceiling: 6000 },
     entities: [],
     selectedEntity: null,
     terrainSeed: Math.floor(Math.random() * 99999),
