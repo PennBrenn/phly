@@ -144,6 +144,25 @@ export class MultiplayerMenu {
     });
   }
 
+  /** Show "Waiting for host to select mission..." (client connected, waiting). */
+  showWaitingForMission(): void {
+    console.log('[MPMenu] showWaitingForMission()');
+    this._visible = true;
+    this.container.classList.add('open');
+    this.container.innerHTML = `
+      <div class="mp-title">MULTIPLAYER</div>
+      <div class="mp-subtitle">Connected</div>
+      <div class="mp-card">
+        <div class="mp-waiting">Waiting for host to select mission...</div>
+      </div>
+      <button class="mp-back" id="mp-cancel">Cancel</button>
+    `;
+    this.container.querySelector('#mp-cancel')!.addEventListener('click', () => {
+      console.log('[MPMenu] Cancel clicked during mission wait');
+      this._callbacks?.onCancel();
+    });
+  }
+
   /** Show an error, then return to the choices screen. */
   showError(msg: string): void {
     console.log('[MPMenu] showError():', msg);

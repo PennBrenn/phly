@@ -41,7 +41,7 @@ import { loadProgress, saveProgress, getMissionProgress } from '@/state/progress
 import type { ProgressState } from '@/state/progressState';
 import { PeerManager } from '@/networking/peerManager';
 import { encode, packPlayer, unpackPlayer } from '@/networking/protocol';
-import type { NetMessage, LoadoutPayload, PlayerStatePayload, EnemyStatePayload, EnemyNetState, KillEventPayload } from '@/networking/protocol';
+import type { NetMessage, LoadoutPayload, PlayerStatePayload, EnemyStatePayload, EnemyNetState, KillEventPayload, MissionStartPayload } from '@/networking/protocol';
 import { SyncTimer, createInterpBuffer, pushPlayerSnapshot, pushEnemySnapshot, interpolatePlayer, interpolateEnemies } from '@/networking/syncLoop';
 import type { InterpBuffer } from '@/networking/syncLoop';
 import { MultiplayerMenu } from '@/ui/multiplayerMenu';
@@ -370,6 +370,16 @@ export class App {
 
   private async startMission(missionId: string): Promise<void> {
     try {
+      // If host in multiplayer, send mission selection to client
+      if (this.isMultiplayer && this.peerManager?.isHost) {
+        console.log('[MP] Host sending mission_start to client:', missionId);
+        const payload: MissionStartPayload = {
+          missionId,
+          difficulty: this.settings.difficulty,
+        };
+        this.peerManager.send(encode('mission_start', payload));
+      }
+
       const mission = await loadMission(missionId);
       await preloadMissionData(mission);
       this.activeMission = mission;
@@ -629,7 +639,6 @@ export class App {
         onConnected: (remotePeerId) => {
           console.log('[MP] onConnected, peer:', remotePeerId);
           this.isMultiplayer = true;
-          this.multiplayerMenu.hide();
           // Send our loadout to the remote peer
           const lo: LoadoutPayload = {
             planeId: this.upgrades.loadout.planeId,
@@ -638,7 +647,16 @@ export class App {
             playerName: this.playerName,
           };
           this.peerManager!.send(encode('loadout_sync', lo));
-          this.levelSelectUI.show();
+          
+          // Host selects mission, client waits
+          if (this.peerManager!.isHost) {
+            console.log('[MP] Host connected - showing level select');
+            this.multiplayerMenu.hide();
+            this.levelSelectUI.show();
+          } else {
+            console.log('[MP] Client connected - waiting for host to select mission');
+            this.multiplayerMenu.showWaitingForMission();
+          }
         },
         onMessage: (msg) => this.handleNetMessage(msg),
         onDisconnected: (_remotePeerId) => {
@@ -716,7 +734,11 @@ export class App {
         break;
       }
       case 'mission_start': {
-        // Client receives mission start from host (future: auto-sync mission selection)
+        // Client receives mission start from host
+        const ms = msg.d as MissionStartPayload;
+        console.log('[MP] Client received mission_start from host:', ms.missionId);
+        this.multiplayerMenu.hide();
+        this.startMission(ms.missionId);
         break;
       }
       case 'ping': {
