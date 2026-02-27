@@ -634,7 +634,11 @@ export class App {
 
     // Set terrain seed and biome
     setTerrainSeed(mission.terrainSeed);
-    const biome = (mission.biome as BiomeType) || 'temperate';
+    // Validate biome is one of the valid types, fallback to temperate
+    const validBiomes: BiomeType[] = ['temperate', 'desert', 'arctic', 'volcanic', 'tropical'];
+    const biome: BiomeType = validBiomes.includes(mission.biome as BiomeType) 
+      ? (mission.biome as BiomeType) 
+      : 'temperate';
     
     // Rebuild scene with mission biome
     this.scene.background = null;
