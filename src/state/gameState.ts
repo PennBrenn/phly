@@ -99,8 +99,8 @@ export function createGameState(): GameState {
     player: {
       position: { x: 0, y: 2500, z: 0 },
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      velocity: { x: 0, y: 0, z: -90 },
-      speed: 90,
+      velocity: { x: 0, y: 0, z: -110 },
+      speed: 110,
       altitude: 2500,
       throttle: 1,
       health: 100,
