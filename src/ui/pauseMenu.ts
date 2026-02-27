@@ -1,19 +1,23 @@
 export class PauseMenu {
   private container: HTMLDivElement;
   private _visible = false;
+  private _fromBuilder = false;
 
   private onResume: () => void;
   private onSettings: () => void;
   private onMainMenu: () => void;
+  private onReturnToEditor: (() => void) | null = null;
 
   constructor(callbacks: {
     onResume: () => void;
     onSettings: () => void;
     onMainMenu: () => void;
+    onReturnToEditor?: () => void;
   }) {
     this.onResume = callbacks.onResume;
     this.onSettings = callbacks.onSettings;
     this.onMainMenu = callbacks.onMainMenu;
+    this.onReturnToEditor = callbacks.onReturnToEditor || null;
 
     this.container = document.createElement('div');
     this.container.id = 'pause-menu';
@@ -77,6 +81,7 @@ export class PauseMenu {
       <div class="pause-title">PAUSED</div>
       <button class="pause-btn" id="pause-resume">Resume</button>
       <button class="pause-btn" id="pause-settings">Settings</button>
+      <button class="pause-btn" id="pause-editor" style="display:none;">Back to Editor</button>
       <button class="pause-btn danger" id="pause-mainmenu">Return to Menu</button>
       <div class="pause-hint">ESC to resume</div>
     `;
@@ -89,10 +94,24 @@ export class PauseMenu {
     this.container.querySelector('#pause-settings')!.addEventListener('click', () => {
       this.onSettings();
     });
+    this.container.querySelector('#pause-editor')!.addEventListener('click', () => {
+      if (this.onReturnToEditor) {
+        this.hide();
+        this.onReturnToEditor();
+      }
+    });
     this.container.querySelector('#pause-mainmenu')!.addEventListener('click', () => {
       this.hide();
       this.onMainMenu();
     });
+  }
+
+  setFromBuilder(fromBuilder: boolean): void {
+    this._fromBuilder = fromBuilder;
+    const editorBtn = this.container.querySelector('#pause-editor') as HTMLButtonElement;
+    if (editorBtn) {
+      editorBtn.style.display = fromBuilder ? 'block' : 'none';
+    }
   }
 
   show(): void {

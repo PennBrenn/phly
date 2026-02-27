@@ -209,6 +209,7 @@ export class App {
       onResume: () => { this.canvas.focus(); },
       onSettings: () => { this.settingsUI.show(); },
       onMainMenu: () => { window.location.reload(); },
+      onReturnToEditor: () => { window.location.href = '/builder/'; },
     });
 
     // Load level manifest
@@ -369,6 +370,7 @@ export class App {
         try {
           const testMission = JSON.parse(testJson) as MissionData;
           this.mainMenu.hide();
+          this.pauseMenu.setFromBuilder(true); // Show "Back to Editor" button
           this.startMissionFromData(testMission);
         } catch (err) {
           console.error('[App] Failed to load test level:', err);
