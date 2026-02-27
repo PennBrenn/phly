@@ -41,11 +41,12 @@ import { loadProgress, saveProgress, getMissionProgress } from '@/state/progress
 import type { ProgressState } from '@/state/progressState';
 import { PeerManager } from '@/networking/peerManager';
 import { encode, packPlayer, unpackPlayer } from '@/networking/protocol';
-import type { NetMessage, LoadoutPayload, PlayerStatePayload, EnemyStatePayload, EnemyNetState, KillEventPayload, MissionStartPayload } from '@/networking/protocol';
+import type { NetMessage, LoadoutPayload, PlayerStatePayload, EnemyStatePayload, EnemyNetState, KillEventPayload, MissionStartPayload, ChatMessagePayload } from '@/networking/protocol';
 import { SyncTimer, createInterpBuffer, pushPlayerSnapshot, pushEnemySnapshot, interpolatePlayer, interpolateEnemies } from '@/networking/syncLoop';
 import type { InterpBuffer } from '@/networking/syncLoop';
 import { MultiplayerMenu } from '@/ui/multiplayerMenu';
 import { DisconnectOverlay } from '@/ui/disconnectOverlay';
+import { ChatUI } from '@/ui/chatUI';
 import type { RemotePlayerState } from '@/state/gameState';
 
 export class App {
@@ -99,6 +100,7 @@ export class App {
   private remotePlayerMesh: PlayerMesh | null = null;
   private multiplayerMenu!: MultiplayerMenu;
   private disconnectOverlay!: DisconnectOverlay;
+  private chatUI!: ChatUI;
   private isMultiplayer = false;
   private playerName = 'Pilot';
 
@@ -246,6 +248,7 @@ export class App {
         this.peerManager?.disconnect();
         this.peerManager = null;
         this.removeRemotePlayer();
+        this.chatUI.hide();
         this.canvas.focus();
       },
       () => {
@@ -253,6 +256,20 @@ export class App {
         window.location.reload();
       },
     );
+
+    // Chat UI
+    this.chatUI = new ChatUI();
+    this.chatUI.setSendCallback((msg) => {
+      if (this.isMultiplayer && this.peerManager) {
+        const payload: ChatMessagePayload = {
+          playerName: this.playerName,
+          message: msg,
+        };
+        this.peerManager.send(encode('chat_message', payload));
+        // Show own message
+        this.chatUI.addMessage(this.playerName, msg);
+      }
+    });
 
     // Debug callbacks
     this.settingsUI.setDebugCallbacks({
@@ -289,8 +306,28 @@ export class App {
     // Escape key handling
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Tab') e.preventDefault();
+      
+      // Enter key opens chat in multiplayer
+      if (e.code === 'Enter' && this.isMultiplayer && this.gameStarted && !this.chatUI.isInputActive()) {
+        e.preventDefault();
+        const anyMenuOpen = this.hangarUI?.isVisible() || this.levelSelectUI?.isVisible()
+          || this.missionCompleteUI?.isVisible() || this.mainMenu?.isVisible()
+          || this.multiplayerMenu?.isVisible() || this.disconnectOverlay?.isVisible()
+          || this.pauseMenu?.isVisible() || this.settingsUI?.isVisible();
+        if (!anyMenuOpen) {
+          this.chatUI.openInput();
+        }
+        return;
+      }
+      
       if (e.code === 'Escape') {
         e.preventDefault();
+        // Close chat input if active
+        if (this.chatUI.isInputActive()) {
+          this.chatUI.closeInput();
+          this.canvas.focus();
+          return;
+        }
         const anyMenuOpen = this.hangarUI?.isVisible() || this.levelSelectUI?.isVisible()
           || this.missionCompleteUI?.isVisible() || this.mainMenu?.isVisible()
           || this.multiplayerMenu?.isVisible() || this.disconnectOverlay?.isVisible();
@@ -468,6 +505,11 @@ export class App {
       if (this.remotePlayerMesh) this.remotePlayerMesh.group.visible = true;
       this.clock.getDelta();
       this.canvas.focus();
+      
+      // Show chat in multiplayer
+      if (this.isMultiplayer) {
+        this.chatUI.show();
+      }
 
       // Start multiplayer sync if connected
       if (this.isMultiplayer && this.peerManager) {
@@ -739,6 +781,11 @@ export class App {
         console.log('[MP] Client received mission_start from host:', ms.missionId);
         this.multiplayerMenu.hide();
         this.startMission(ms.missionId);
+        break;
+      }
+      case 'chat_message': {
+        const cm = msg.d as ChatMessagePayload;
+        this.chatUI.addMessage(cm.playerName, cm.message);
         break;
       }
       case 'ping': {

@@ -16,6 +16,7 @@ export type MessageType =
   | 'player_join'
   | 'player_leave'
   | 'mission_start'
+  | 'chat_message'
   | 'ping'
   | 'pong';
 
@@ -83,6 +84,11 @@ export interface KillEventPayload {
 export interface MissionStartPayload {
   missionId: string;
   difficulty: string;
+}
+
+export interface ChatMessagePayload {
+  playerName: string;
+  message: string;
 }
 
 // ─── Encode / Decode ────────────────────────────────────────────────────────────
