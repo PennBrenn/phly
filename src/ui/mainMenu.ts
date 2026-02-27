@@ -110,6 +110,7 @@ export class MainMenu {
       <button class="mm-btn" id="mm-multiplayer">Multiplayer</button>
       <button class="mm-btn" id="mm-loadout">Loadout</button>
       <button class="mm-btn" id="mm-settings">Settings</button>
+      <button class="mm-btn" id="mm-builder">Level Editor</button>
       <div class="mm-controls">
         WASD: Pitch/Roll &nbsp;|&nbsp; Q/E: Yaw &nbsp;|&nbsp; R/F: Throttle<br>
         Space: Seeker &nbsp;|&nbsp; Click: Fire &nbsp;|&nbsp; Shift: Afterburner<br>
@@ -122,6 +123,10 @@ export class MainMenu {
     this.container.querySelector('#mm-singleplayer')!.addEventListener('click', () => {
       this.hide();
       this.onSingleplayer();
+    });
+
+    this.container.querySelector('#mm-builder')!.addEventListener('click', () => {
+      window.location.href = '/builder/';
     });
   }
 

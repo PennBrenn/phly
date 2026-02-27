@@ -323,6 +323,22 @@ export class App {
     this.mainMenu.onMultiplayerClick(() => { this.openMultiplayerMenu(); });
     this.mainMenu.onLoadoutClick(() => { this.hangarUI.show(); });
 
+    // Check for test level from builder
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('test') === '1') {
+      const testJson = sessionStorage.getItem('phly_test_level');
+      if (testJson) {
+        sessionStorage.removeItem('phly_test_level');
+        try {
+          const testMission = JSON.parse(testJson) as MissionData;
+          this.mainMenu.hide();
+          this.startMissionFromData(testMission);
+        } catch (err) {
+          console.error('[App] Failed to load test level:', err);
+        }
+      }
+    }
+
     this.loop();
   }
 
@@ -457,6 +473,82 @@ export class App {
       }
     } catch (err) {
       console.error('[App] Failed to start mission:', err);
+    }
+  }
+
+  private async startMissionFromData(mission: MissionData): Promise<void> {
+    try {
+      await preloadMissionData(mission);
+      this.activeMission = mission;
+
+      const planeId = this.upgrades.loadout.planeId;
+      let planeData: PlaneData | null = null;
+      try { planeData = await loadPlane(planeId); } catch { /* fallback */ }
+
+      if (planeData) {
+        this.state.player.health = planeData.health;
+        this.missionStartHealth = planeData.health;
+        if (planeData.engines?.length) {
+          this.contrailSystem.setEngineOffsets(planeData.engines);
+        }
+      }
+
+      const lo = this.upgrades.loadout;
+      this.state.combat.weaponSlots = lo.weaponSlots.map(ws => {
+        const weaponId = ws.slot === 1 && planeData?.gun ? planeData.gun : ws.weaponId;
+        let ammo = -1;
+        try {
+          const wData = getWeaponSync(weaponId);
+          if (wData) {
+            if (wData.type === 'gun') ammo = -1;
+            else if (wData.type === 'countermeasure') ammo = 12;
+            else ammo = wData.ammo ?? 2;
+          }
+        } catch { /* fallback */ }
+        return { slot: ws.slot, weaponId, ammo, cooldown: 0 };
+      });
+      this.state.combat.selectedSlot = 2;
+
+      if (planeData?.gun) {
+        try { await loadWeapon(planeData.gun); } catch { /* skip */ }
+      }
+      for (const ws of lo.weaponSlots) {
+        try { await loadWeapon(ws.weaponId); } catch { /* skip */ }
+      }
+
+      try {
+        const modelPath = planeData?.model ?? `/models/planes/${planeId}.glb`;
+        const model = await this.modelLoader.load(modelPath, {
+          posX: this.settings.modelOffsetX, posY: this.settings.modelOffsetY,
+          posZ: this.settings.modelOffsetZ, rotX: this.settings.modelRotX,
+          rotY: this.settings.modelRotY, rotZ: this.settings.modelRotZ, scale: 1,
+        });
+        this.playerMesh.setModel(model);
+      } catch {
+        console.warn('[App] Could not load plane model, using primitive fallback.');
+      }
+
+      applyMissionToState(this.state, mission, this.settings.difficulty);
+
+      if (mission.objectives?.length) {
+        this.objectiveTracker.setObjectives(mission.objectives);
+        this.objectiveTracker.show();
+      }
+
+      this.missionTimer = 0;
+      this.missionAirKills = 0;
+      this.missionGroundKills = 0;
+      this.missionDamageTaken = 0;
+      this.prevAirKillCount = 0;
+      this.prevGroundKillCount = 0;
+
+      console.debug('[Debug][App] Starting test mission:', mission.id);
+      this.gameStarted = true;
+      this.playerMesh.group.visible = true;
+      this.clock.getDelta();
+      this.canvas.focus();
+    } catch (err) {
+      console.error('[App] Failed to start test mission:', err);
     }
   }
 

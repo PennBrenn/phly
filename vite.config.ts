@@ -7,6 +7,14 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        builder: resolve(__dirname, 'builder/index.html'),
+      },
+    },
+  },
   server: {
     port: 3000,
     proxy: {
