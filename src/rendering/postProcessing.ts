@@ -76,7 +76,7 @@ export class PostProcessing {
 
     // Use ACESFilmic on renderer — OutputPass will apply tone mapping + color space
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 0.85;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Build render target with HalfFloat precision for correct HDR bloom
@@ -94,7 +94,7 @@ export class PostProcessing {
 
     // 2. Bloom (subtle)
     const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
-    this.bloomPass = new UnrealBloomPass(resolution, 0.25, 0.4, 0.85);
+    this.bloomPass = new UnrealBloomPass(resolution, 0.18, 0.4, 0.85);
     this.composer.addPass(this.bloomPass);
 
     // 3. God rays (screen-space radial light scatter)

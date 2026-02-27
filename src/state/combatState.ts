@@ -126,9 +126,9 @@ export const PLAYER_COLLISION_RADIUS = 6;
 export const BULLET_SPEED = 800;
 export const BULLET_MAX_AGE = 2.0;
 export const BULLET_FIRE_RATE = 12;
-export const MISSILE_SPEED = 250;
-export const MISSILE_MAX_AGE = 8.0;
-export const MISSILE_TURN_RATE = 2.5;
+export const MISSILE_SPEED = 320;
+export const MISSILE_MAX_AGE = 12.0;
+export const MISSILE_TURN_RATE = 3.2;
 
 export interface CombatState {
   bullets: BulletState[];

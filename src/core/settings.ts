@@ -15,6 +15,7 @@ export interface Settings {
   fxaa: boolean;
   fogDensity: number;
   treeDensity: number;
+  cloudDensity: number;
   showFPS: boolean;
   // Controls
   mouseSensitivity: number;
@@ -76,6 +77,7 @@ function defaultSettings(): Settings {
     fxaa: true,
     fogDensity: 0.000025,
     treeDensity: 0.7,
+    cloudDensity: 0.5,
     showFPS: false,
     mouseSensitivity: 1.0,
     useMouseAim: false,

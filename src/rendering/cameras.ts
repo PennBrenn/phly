@@ -107,14 +107,34 @@ export class CameraController {
     lookAhead.applyQuaternion(this.smoothQuat);
     const lookTarget = this.smoothPos.clone().add(lookAhead);
 
-    // Free-look: mouse moves camera view across the full screen bounds
-    if (state.input.useMouseAim) {
-      const mx = state.input.mouseX; // -1..1
-      const my = state.input.mouseY; // -1..1
+    // Free-look: mouse moves camera view (works in both keyboard and mouse mode)
+    // Edge-screen detection: only apply rotation when mouse is near screen edges
+    const mx = state.input.mouseX; // -1..1
+    const my = state.input.mouseY; // -1..1
+    const edgeThreshold = 0.6; // Start rotating when mouse > 60% from center
+    
+    let lookOffsetX = 0;
+    let lookOffsetY = 0;
+    
+    // Calculate edge influence (0 when centered, 1 at edge)
+    const absX = Math.abs(mx);
+    const absY = Math.abs(my);
+    
+    if (absX > edgeThreshold) {
+      const influence = (absX - edgeThreshold) / (1 - edgeThreshold);
+      lookOffsetX = Math.sign(mx) * influence * 45; // Allow full 360° rotation
+    }
+    
+    if (absY > edgeThreshold) {
+      const influence = (absY - edgeThreshold) / (1 - edgeThreshold);
+      lookOffsetY = -Math.sign(my) * influence * 35; // Vertical look range
+    }
+    
+    if (lookOffsetX !== 0 || lookOffsetY !== 0) {
       const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(this.smoothQuat);
       const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.smoothQuat);
-      lookTarget.addScaledVector(camRight, mx * 25);
-      lookTarget.addScaledVector(camUp, -my * 18);
+      lookTarget.addScaledVector(camRight, lookOffsetX);
+      lookTarget.addScaledVector(camUp, lookOffsetY);
     }
 
     this.camera.lookAt(lookTarget);

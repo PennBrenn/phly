@@ -277,7 +277,7 @@ export function updateFlightPhysics(state: GameState): void {
     // mouse adds on top. This means A/D roll still works even when mouse is off-center.
     targetPitch = clamp(input.pitch  - input.mouseY * 0.9,  -1, 1);
     targetRoll  = clamp(input.roll   + input.mouseX * 1.3,  -1, 1);
-    targetYaw   = clamp(input.yaw    - input.mouseX * 0.25, -1, 1);
+    targetYaw   = clamp(input.yaw    - input.mouseX * 0.6,  -1, 1);
   }
 
   // Smooth control deflections (simulates hydraulic actuator lag)

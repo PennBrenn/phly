@@ -22,6 +22,7 @@ import { DamageVignette } from '@/rendering/damageVignette';
 import { ModelLoader } from '@/rendering/modelLoader';
 import { LoadingScreen } from '@/rendering/loadingScreen';
 import { ContrailSystem } from '@/rendering/contrailSystem';
+import { CloudSystem } from '@/rendering/cloudSystem';
 import { ObjectiveTracker } from '@/rendering/hud/objectiveTracker';
 import { loadSettings, saveSettings, type Settings } from '@/core/settings';
 import { SettingsUI } from '@/ui/settingsUI';
@@ -61,6 +62,7 @@ export class App {
   private combatRenderer!: CombatRenderer;
   private damageVignette!: DamageVignette;
   private contrailSystem!: ContrailSystem;
+  private cloudSystem!: CloudSystem;
   private objectiveTracker!: ObjectiveTracker;
   private settingsUI!: SettingsUI;
   private pauseMenu!: PauseMenu;
@@ -162,6 +164,9 @@ export class App {
 
     // Contrails
     this.contrailSystem = new ContrailSystem(this.scene);
+
+    // Clouds
+    this.cloudSystem = new CloudSystem(this.scene, this.settings.cloudDensity);
 
     // Objective tracker
     this.objectiveTracker = new ObjectiveTracker();
@@ -725,6 +730,7 @@ export class App {
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.density = s.fogDensity;
     }
+    this.cloudSystem.setDensity(s.cloudDensity);
     const inner = this.playerMesh.getInnerModel();
     if (inner) {
       inner.position.set(s.modelOffsetX, s.modelOffsetY, s.modelOffsetZ);
@@ -901,6 +907,9 @@ export class App {
         this.state.player.afterburner,
       );
     }
+
+    // Clouds
+    this.cloudSystem.update(this.playerMesh.group.position, dt);
 
     if (this.gameStarted) {
       this.hud.setVisible(true);

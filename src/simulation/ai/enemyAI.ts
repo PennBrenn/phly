@@ -11,14 +11,14 @@ import { getTerrainHeight } from '@/utils/terrain';
 
 // ─── AI Constants ────────────────────────────────────────────────────────────
 const PATROL_SPEED = 70;
-const ENGAGE_SPEED = 110;
-const TURN_RATE = 1.8;
-const ENGAGE_RANGE = 1200;
-const DISENGAGE_RANGE = 2000;
-const FIRE_CONE = 0.92;
-const FIRE_RANGE = 600;
-const FIRE_INTERVAL = 0.4;
-const MISSILE_FIRE_INTERVAL = 12;
+const ENGAGE_SPEED = 130;
+const TURN_RATE = 2.4;
+const ENGAGE_RANGE = 1600;
+const DISENGAGE_RANGE = 2400;
+const FIRE_CONE = 0.95;
+const FIRE_RANGE = 800;
+const FIRE_INTERVAL = 0.3;
+const MISSILE_FIRE_INTERVAL = 10;
 const MIN_ALT = 80;
 const TERRAIN_LOOK_AHEAD = 180;
 const EVADE_DURATION = 3.0;
@@ -119,12 +119,18 @@ export function spawnGroundEnemy(
   patrolRadius: number,
 ): void {
   const combat = state.combat;
-  const terrainH = Math.max(getTerrainHeight(pos.x, pos.z), 0);
-  const e = makeDefaultEnemy(combat.enemies.length + 1, { x: pos.x, y: terrainH, z: pos.z }, 0);
+  const terrainH = getTerrainHeight(pos.x, pos.z);
+  
+  // Spawn boats in water, tanks on land
+  const isWater = terrainH < 0;
+  const actualVehicleId = isWater ? 'boat' : vehicleId;
+  const spawnY = isWater ? 0 : terrainH; // Boats float at sea level
+  
+  const e = makeDefaultEnemy(combat.enemies.length + 1, { x: pos.x, y: spawnY, z: pos.z }, 0);
   e.isGround = true;
-  e.vehicleId = vehicleId;
+  e.vehicleId = actualVehicleId;
   e.canMove = moving;
-  e.patrolCenter = { x: pos.x, y: terrainH, z: pos.z };
+  e.patrolCenter = { x: pos.x, y: spawnY, z: pos.z };
   e.patrolRadius = patrolRadius;
   e.patrolAngle = Math.random() * Math.PI * 2;
   e.collisionRadius = 6;

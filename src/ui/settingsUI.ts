@@ -177,6 +177,13 @@ export class SettingsUI {
           </div>
           <div class="settings-hint">Tree density applies on reload (max 2x = ~5000 trees)</div>
           <div class="settings-row">
+            <label>Cloud Density</label>
+            <input type="range" class="settings-slider" data-setting="cloudDensity"
+              min="0" max="1" step="0.05">
+            <span class="debug-val" data-val="cloudDensity">0.50</span>
+          </div>
+          <div class="settings-hint">Cloud density updates in real-time</div>
+          <div class="settings-row">
             <label>Show FPS</label>
             <div class="settings-toggle" data-setting="showFPS"></div>
           </div>

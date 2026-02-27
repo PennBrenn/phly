@@ -3,7 +3,7 @@ import { createNoise2D } from 'simplex-noise';
 // ─── Terrain constants ───────────────────────────────────────────────────────
 export const TERRAIN_SIZE = 20000;
 export const TERRAIN_SEGMENTS = 512;
-export const HEIGHT_SCALE = 2000;
+export const HEIGHT_SCALE = 3200;
 
 // ─── Seed-based PRNG (deterministic terrain across reloads) ──────────────────
 export let TERRAIN_SEED = 7742;
@@ -54,9 +54,11 @@ export function sampleHeightRaw(px: number, py: number): number {
   // Continent-scale shapes — very large, gentle undulations
   h += continentNoise(px * 0.000025, py * 0.000025) * 1.0;
   // Broad mountain ranges
-  h += continentNoise(px * 0.0001,  py * 0.0001)  * 0.4;
+  h += continentNoise(px * 0.0001,  py * 0.0001)  * 0.5;
+  // Steep mountain peaks (sharper, more dramatic)
+  h += detailNoise(px * 0.00025,    py * 0.00025)  * 0.35;
   // Rolling hills (gentle)
-  h += detailNoise(px * 0.00035,    py * 0.00035)  * 0.1;
+  h += detailNoise(px * 0.00035,    py * 0.00035)  * 0.12;
   // Very subtle ground variation (no sharp bumps)
   h += detailNoise(px * 0.001,      py * 0.001)    * 0.02;
 
