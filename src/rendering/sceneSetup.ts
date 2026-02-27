@@ -111,8 +111,57 @@ function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
 export function createScene(biome: BiomeType = 'temperate'): THREE.Scene {
   const palette = BIOME_PALETTES[biome];
   const scene = new THREE.Scene();
-  scene.background = palette.sky;
-  scene.fog = new THREE.FogExp2(palette.fog.getHex(), 0.000022);
+  scene.fog = new THREE.FogExp2(palette.fog.getHex(), 0.000018);
+
+  // Gradient sky dome
+  const skyGeo = new THREE.SphereGeometry(18000, 32, 16);
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: {
+      uTopColor:    { value: new THREE.Color().copy(palette.sky).multiplyScalar(0.55) },
+      uHorizonColor: { value: palette.sky.clone() },
+      uBottomColor: { value: new THREE.Color().copy(palette.fog).multiplyScalar(1.1) },
+      uSunColor:    { value: new THREE.Color(0xfff4e0) },
+      uSunDir:      { value: new THREE.Vector3(0.4, 0.6, 0.3).normalize() },
+    },
+    vertexShader: `
+      varying vec3 vWorldPos;
+      void main() {
+        vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uTopColor;
+      uniform vec3 uHorizonColor;
+      uniform vec3 uBottomColor;
+      uniform vec3 uSunColor;
+      uniform vec3 uSunDir;
+      varying vec3 vWorldPos;
+      void main() {
+        vec3 dir = normalize(vWorldPos - cameraPosition);
+        float y = dir.y;
+        // Gradient: bottom → horizon → top
+        vec3 col;
+        if (y < 0.0) {
+          col = mix(uBottomColor, uHorizonColor, clamp(y + 1.0, 0.0, 1.0));
+        } else {
+          float t = pow(clamp(y, 0.0, 1.0), 0.6);
+          col = mix(uHorizonColor, uTopColor, t);
+        }
+        // Sun glow
+        float sunDot = max(dot(dir, uSunDir), 0.0);
+        col += uSunColor * pow(sunDot, 64.0) * 0.8;
+        col += uSunColor * pow(sunDot, 8.0) * 0.15;
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  const sky = new THREE.Mesh(skyGeo, skyMat);
+  sky.renderOrder = -1;
+  scene.add(sky);
+
   return scene;
 }
 
@@ -251,27 +300,52 @@ export function createTerrain(scene: THREE.Scene, biome: BiomeType = 'temperate'
   scene.add(terrain);
 
   // ─── Water plane at sea level ──────────────────────────────────────────
-  const waterGeo = new THREE.PlaneGeometry(TERRAIN_SIZE * 1.5, TERRAIN_SIZE * 1.5, 1, 1);
+  const waterGeo = new THREE.PlaneGeometry(TERRAIN_SIZE * 1.5, TERRAIN_SIZE * 1.5, 128, 128);
   const waterMat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     uniforms: {
-      uTime:    { value: 0 },
-      uColor:   { value: new THREE.Color(0x1070a0) },
-      uOpacity: { value: 0.70 },
+      uTime:      { value: 0 },
+      uDeepColor: { value: new THREE.Color(0x061830) },
+      uColor:     { value: new THREE.Color(0x1080b0) },
+      uFoamColor: { value: new THREE.Color(0xc0e8ff) },
+      uSkyColor:  { value: palette.sky.clone() },
+      uOpacity:   { value: 0.82 },
+      uSunDir:    { value: new THREE.Vector3(0.5, 0.7, 0.4).normalize() },
     },
     vertexShader: `
+      uniform float uTime;
       varying vec2 vUv;
+      varying vec3 vWorldPos;
+      varying vec3 vNormal;
       void main() {
         vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec3 pos = position;
+        // Multi-octave wave displacement
+        float t = uTime * 0.4;
+        float wave1 = sin(pos.x * 0.008 + t) * cos(pos.y * 0.006 + t * 0.7) * 3.0;
+        float wave2 = sin(pos.x * 0.02 + t * 1.3) * cos(pos.y * 0.015 - t * 0.9) * 1.2;
+        float wave3 = sin(pos.x * 0.05 + t * 2.1) * sin(pos.y * 0.04 + t * 1.5) * 0.4;
+        pos.z += wave1 + wave2 + wave3;
+        // Approximate normal from wave derivatives
+        float dx = cos(pos.x * 0.008 + t) * 0.008 * 3.0 + cos(pos.x * 0.02 + t * 1.3) * 0.02 * 1.2;
+        float dy = cos(pos.y * 0.006 + t * 0.7) * 0.006 * 3.0 + cos(pos.y * 0.015 - t * 0.9) * 0.015 * 1.2;
+        vNormal = normalize(vec3(-dx, -dy, 1.0));
+        vWorldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }
     `,
     fragmentShader: `
+      uniform vec3  uDeepColor;
       uniform vec3  uColor;
+      uniform vec3  uFoamColor;
+      uniform vec3  uSkyColor;
+      uniform vec3  uSunDir;
       uniform float uOpacity;
       uniform float uTime;
       varying vec2  vUv;
+      varying vec3  vWorldPos;
+      varying vec3  vNormal;
 
       float hash(vec2 p) {
         return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -280,17 +354,43 @@ export function createTerrain(scene: THREE.Scene, biome: BiomeType = 'temperate'
         vec2 i = floor(p);
         vec2 f = fract(p);
         vec2 u = f * f * (3.0 - 2.0 * f);
-        return mix(mix(hash(i),          hash(i + vec2(1,0)), u.x),
+        return mix(mix(hash(i), hash(i + vec2(1,0)), u.x),
                    mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x), u.y);
       }
 
       void main() {
-        vec2 uv = vUv * 80.0;
-        float n  = noise(uv + vec2(uTime * 0.04,  uTime * 0.02));
-        float n2 = noise(uv * 2.3 + vec2(-uTime * 0.03, uTime * 0.05));
-        float ripple = (n * 0.6 + n2 * 0.4) * 0.08 - 0.04;
-        vec3 col = uColor + ripple;
-        gl_FragColor = vec4(col, uOpacity);
+        vec2 uv = vUv * 120.0;
+        // Ripple noise layers
+        float n1 = noise(uv + vec2(uTime * 0.06, uTime * 0.03));
+        float n2 = noise(uv * 2.5 + vec2(-uTime * 0.04, uTime * 0.07));
+        float n3 = noise(uv * 6.0 + vec2(uTime * 0.12, -uTime * 0.08));
+        float ripple = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
+
+        // Fresnel-like view angle effect
+        vec3 viewDir = normalize(cameraPosition - vWorldPos);
+        float fresnel = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 3.0);
+        fresnel = clamp(fresnel, 0.15, 0.85);
+
+        // Blend deep and surface color with ripple variation
+        vec3 waterCol = mix(uDeepColor, uColor, ripple);
+        // Mix sky reflection based on fresnel
+        vec3 col = mix(waterCol, uSkyColor * 0.7, fresnel * 0.5);
+
+        // Specular highlight from sun
+        vec3 halfDir = normalize(uSunDir + viewDir);
+        float spec = pow(max(dot(vNormal, halfDir), 0.0), 128.0);
+        col += vec3(1.0, 0.95, 0.8) * spec * 0.6;
+
+        // Foam on wave crests
+        float foam = smoothstep(0.72, 0.85, ripple) * 0.3;
+        col = mix(col, uFoamColor, foam);
+
+        // Distance fade for opacity
+        float dist = length(vWorldPos.xz - cameraPosition.xz);
+        float distFade = clamp(dist / 15000.0, 0.0, 1.0);
+        float alpha = mix(uOpacity, uOpacity * 0.5, distFade);
+
+        gl_FragColor = vec4(col, alpha);
       }
     `,
   });
@@ -298,7 +398,6 @@ export function createTerrain(scene: THREE.Scene, biome: BiomeType = 'temperate'
   water.rotation.x = -Math.PI / 2;
   water.position.y = 0;
   water.renderOrder = 1;
-  // Animate water ripples each frame
   water.onBeforeRender = (_, __, ___, ____, mat) => {
     if ((mat as THREE.ShaderMaterial).uniforms) {
       (mat as THREE.ShaderMaterial).uniforms.uTime.value += 0.016;

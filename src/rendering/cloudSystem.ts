@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 
-// Low-poly volumetric cloud system
+// Enhanced volumetric cloud system with multiple layers and types
 export class CloudSystem {
   private clouds: THREE.Group[] = [];
   private scene: THREE.Scene;
+  private time = 0;
 
   constructor(scene: THREE.Scene, density: number = 0.5) {
     this.scene = scene;
@@ -11,51 +12,72 @@ export class CloudSystem {
   }
 
   private generateClouds(density: number): void {
-    const cloudCount = Math.floor(80 * density);
-    const cloudMaterial = new THREE.MeshLambertMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.7,
-      flatShading: true,
-    });
-
+    const cloudCount = Math.floor(100 * density);
     const rng = this.seededRng(54321);
+
+    // Shared cloud materials with varying opacity for depth
+    const cloudMats = [
+      new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, flatShading: true }),
+      new THREE.MeshLambertMaterial({ color: 0xf0f4ff, transparent: true, opacity: 0.45, flatShading: true }),
+      new THREE.MeshLambertMaterial({ color: 0xe8ecf8, transparent: true, opacity: 0.35, flatShading: true }),
+    ];
+
+    // Shared geometries (reuse for performance)
+    const geos = [
+      new THREE.IcosahedronGeometry(1, 1),
+      new THREE.IcosahedronGeometry(1, 0),
+      new THREE.DodecahedronGeometry(1, 0),
+    ];
 
     for (let i = 0; i < cloudCount; i++) {
       const cloud = new THREE.Group();
       
-      // Each cloud is made of 3-8 low-poly spheres clustered together
-      const puffCount = 3 + Math.floor(rng() * 6);
+      // Vary cloud size: small wispy vs large cumulus
+      const isLarge = rng() > 0.6;
+      const puffCount = isLarge ? (6 + Math.floor(rng() * 8)) : (3 + Math.floor(rng() * 4));
+      const baseSize = isLarge ? 12 : 7;
+      const spread = isLarge ? 40 : 20;
       
       for (let j = 0; j < puffCount; j++) {
-        const puff = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(8 + rng() * 12, 0), // low-poly sphere
-          cloudMaterial
-        );
+        const geo = geos[Math.floor(rng() * geos.length)];
+        const mat = cloudMats[Math.floor(rng() * cloudMats.length)];
+        const puff = new THREE.Mesh(geo, mat);
         
-        // Cluster puffs together
         puff.position.set(
-          (rng() - 0.5) * 25,
-          (rng() - 0.5) * 8,
-          (rng() - 0.5) * 25
+          (rng() - 0.5) * spread,
+          (rng() - 0.5) * (isLarge ? 12 : 5),
+          (rng() - 0.5) * spread
         );
         
+        const s = baseSize + rng() * baseSize * 0.8;
         puff.scale.set(
-          0.8 + rng() * 0.6,
-          0.6 + rng() * 0.4,
-          0.8 + rng() * 0.6
+          s * (0.8 + rng() * 0.4),
+          s * (0.5 + rng() * 0.3),
+          s * (0.8 + rng() * 0.4)
         );
         
         cloud.add(puff);
       }
 
-      // Position clouds in the sky
-      const x = (rng() - 0.5) * 32000;  // Doubled for 40km terrain
-      const z = (rng() - 0.5) * 32000;
-      const y = 400 + rng() * 600; // Clouds between 400-1000m altitude
+      // Multiple altitude layers
+      const layer = rng();
+      let y: number;
+      if (layer < 0.5) {
+        y = 500 + rng() * 500;     // Low clouds (500-1000m)
+      } else if (layer < 0.85) {
+        y = 1200 + rng() * 800;    // Mid clouds (1200-2000m)
+      } else {
+        y = 2500 + rng() * 1000;   // High wispy clouds (2500-3500m)
+      }
+
+      const x = (rng() - 0.5) * 36000;
+      const z = (rng() - 0.5) * 36000;
       
       cloud.position.set(x, y, z);
       cloud.rotation.y = rng() * Math.PI * 2;
+      cloud.userData.driftSpeed = 1.5 + rng() * 2.5;
+      cloud.userData.bobPhase = rng() * Math.PI * 2;
+      cloud.userData.baseY = y;
       
       this.clouds.push(cloud);
       this.scene.add(cloud);
@@ -79,10 +101,16 @@ export class CloudSystem {
   }
 
   update(playerPos: THREE.Vector3, dt: number): void {
-    // Gently drift clouds
+    this.time += dt;
     for (const cloud of this.clouds) {
-      cloud.position.x += dt * 2;
-      cloud.position.z += dt * 1;
+      const speed = cloud.userData.driftSpeed || 2;
+      cloud.position.x += dt * speed;
+      cloud.position.z += dt * speed * 0.5;
+      
+      // Gentle vertical bobbing
+      const baseY = cloud.userData.baseY || cloud.position.y;
+      const phase = cloud.userData.bobPhase || 0;
+      cloud.position.y = baseY + Math.sin(this.time * 0.15 + phase) * 3;
       
       // Wrap around if too far from player
       if (cloud.position.x - playerPos.x > 20000) cloud.position.x -= 40000;

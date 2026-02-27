@@ -194,10 +194,10 @@ export class App {
     const os = this.crashOverlay.style;
     os.position = 'fixed'; os.top = '0'; os.left = '0'; os.width = '100%'; os.height = '100%';
     os.display = 'none'; os.zIndex = '150'; os.pointerEvents = 'none';
-    os.background = 'radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.7) 100%)';
-    os.fontFamily = "'Courier New', monospace"; os.color = '#ff4444'; os.textAlign = 'center';
+    os.background = 'radial-gradient(ellipse at center, rgba(80,0,0,0.15) 0%, rgba(0,0,0,0.75) 100%)';
+    os.fontFamily = "'Inter','Segoe UI',system-ui,-apple-system,sans-serif"; os.color = '#ff4455'; os.textAlign = 'center';
     os.justifyContent = 'center'; os.alignItems = 'center'; os.flexDirection = 'column';
-    this.crashOverlay.innerHTML = '<div style="font-size:48px;font-weight:bold;text-shadow:0 0 20px rgba(255,0,0,0.5)">CRASHED</div><div style="font-size:16px;opacity:0.7;margin-top:12px">Respawning...</div>';
+    this.crashOverlay.innerHTML = '<div style="font-size:36px;font-weight:800;letter-spacing:6px;text-shadow:0 0 30px rgba(255,40,40,0.4);filter:drop-shadow(0 0 20px rgba(255,0,0,0.3))">CRASHED</div><div style="font-size:12px;opacity:0.45;margin-top:14px;font-weight:500;letter-spacing:2px">RESPAWNING...</div>';
     document.getElementById('app')!.appendChild(this.crashOverlay);
 
     // Settings UI
@@ -641,10 +641,18 @@ export class App {
       : 'temperate';
     
     // Rebuild scene with mission biome
+    // Remove old sky dome if present
+    const oldSky = this.scene.children.find(c => c.type === 'Mesh' && (c as THREE.Mesh).geometry?.type === 'SphereGeometry');
+    if (oldSky) this.scene.remove(oldSky);
     this.scene.background = null;
     this.scene.fog = null;
     const newScene = createScene(biome);
-    this.scene.background = newScene.background;
+    // Copy sky dome and fog from new scene
+    newScene.children.forEach(c => {
+      if (c.type === 'Mesh' && (c as THREE.Mesh).geometry?.type === 'SphereGeometry') {
+        this.scene.add(c);
+      }
+    });
     this.scene.fog = newScene.fog;
     
     // Rebuild terrain and props

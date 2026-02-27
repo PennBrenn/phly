@@ -76,7 +76,7 @@ export class PostProcessing {
 
     // Use ACESFilmic on renderer — OutputPass will apply tone mapping + color space
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.85;
+    renderer.toneMappingExposure = 0.92;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Build render target with HalfFloat precision for correct HDR bloom
@@ -92,9 +92,9 @@ export class PostProcessing {
     // 1. Render scene
     this.composer.addPass(new RenderPass(scene, camera));
 
-    // 2. Bloom (subtle)
+    // 2. Bloom (refined: softer glow, wider radius)
     const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
-    this.bloomPass = new UnrealBloomPass(resolution, 0.18, 0.4, 0.85);
+    this.bloomPass = new UnrealBloomPass(resolution, 0.22, 0.5, 0.82);
     this.composer.addPass(this.bloomPass);
 
     // 3. God rays (screen-space radial light scatter)
@@ -108,10 +108,10 @@ export class PostProcessing {
     this.rgbShiftPass.uniforms['angle'].value = 0.0;
     this.composer.addPass(this.rgbShiftPass);
 
-    // 5. Vignette
+    // 5. Vignette (subtle cinematic framing)
     this.vignettePass = new ShaderPass(VignetteShader);
-    this.vignettePass.uniforms['offset'].value = 1.0;
-    this.vignettePass.uniforms['darkness'].value = 1.1;
+    this.vignettePass.uniforms['offset'].value = 0.95;
+    this.vignettePass.uniforms['darkness'].value = 1.25;
     this.composer.addPass(this.vignettePass);
 
     // 6. FXAA
