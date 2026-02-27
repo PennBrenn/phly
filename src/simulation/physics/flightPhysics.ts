@@ -313,11 +313,11 @@ export function updateFlightPhysics(state: GameState): void {
   // ═══════════════════════════════════════════════════════════════════════════
   let CL = liftCoefficient(alpha);
 
-  // Low-speed stall factor
+  // Low-speed stall factor (arcade-style: ONLY speed-based, NO angle limit)
   const stallRatio = clamp(speed / STALL_SPEED, 0, 1);
   CL *= stallRatio * stallRatio;
-  const absAlpha = Math.abs(alpha);
-  player.isStalling = speed < STALL_SPEED * 1.1 || absAlpha > STALL_ALPHA;
+  // Stall ONLY based on speed, not angle of attack (arcade-style)
+  player.isStalling = speed < STALL_SPEED * 1.1;
 
   const CD = dragCoefficient(CL, mach, alpha);
 
@@ -452,10 +452,7 @@ export function updateFlightPhysics(state: GameState): void {
     const tuckFactor = (mach - MACH_TUCK_ONSET) / 0.1;
     pitchMoment += MACH_TUCK_MOMENT * clamp(tuckFactor, 0, 2);
   }
-  // Stall auto-pitch: nose drops when deep stall
-  if (absAlpha > STALL_ALPHA * 1.15 && speed > 8) {
-    pitchMoment -= (absAlpha - STALL_ALPHA) * 30000;
-  }
+  // No AoA-based stall auto-pitch (removed for arcade-style control)
 
   // --- Yaw moment (Nm) ---
   let yawMoment = 0;
