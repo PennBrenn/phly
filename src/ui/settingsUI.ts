@@ -223,6 +223,13 @@ export class SettingsUI {
               min="5" max="15" step="1">
             <span class="debug-val" data-val="seekerDuration">8</span>
           </div>
+          <div class="settings-row">
+            <label>Units</label>
+            <div style="display:flex;gap:4px">
+              <button class="settings-btn" data-units="metric">METRIC</button>
+              <button class="settings-btn" data-units="imperial">IMPERIAL</button>
+            </div>
+          </div>
           <div class="settings-hint">Difficulty applies on next respawn</div>
         </div>
 
@@ -467,6 +474,15 @@ export class SettingsUI {
       });
     });
 
+    // Units buttons
+    this.container.querySelectorAll('[data-units]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.settings.units = (btn as HTMLElement).dataset.units as 'metric' | 'imperial';
+        this.save();
+        this.syncUI();
+      });
+    });
+
     // Toggles
     this.container.querySelectorAll('.settings-toggle').forEach((el) => {
       el.addEventListener('click', () => {
@@ -502,6 +518,12 @@ export class SettingsUI {
     this.container.querySelectorAll('[data-diff]').forEach((btn) => {
       const diff = (btn as HTMLElement).dataset.diff;
       btn.classList.toggle('active', diff === this.settings.difficulty);
+    });
+
+    // Units buttons
+    this.container.querySelectorAll('[data-units]').forEach((btn) => {
+      const units = (btn as HTMLElement).dataset.units;
+      btn.classList.toggle('active', units === this.settings.units);
     });
 
     // Toggles

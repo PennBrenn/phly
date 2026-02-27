@@ -1079,7 +1079,7 @@ export class App {
 
     if (this.gameStarted) {
       this.hud.setVisible(true);
-      this.hud.update(this.state, this.cameraController.camera);
+      this.hud.update(this.state, this.cameraController.camera, this.settings);
     } else {
       this.hud.setVisible(false);
     }

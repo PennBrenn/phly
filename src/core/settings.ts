@@ -4,6 +4,8 @@ export type QualityPreset = 'low' | 'medium' | 'high';
 
 export type DifficultyLevel = 'easy' | 'normal' | 'hard' | 'ace';
 
+export type UnitsSystem = 'metric' | 'imperial';
+
 export interface Settings {
   // Graphics
   quality: QualityPreset;
@@ -24,6 +26,7 @@ export interface Settings {
   // Gameplay
   difficulty: DifficultyLevel;
   seekerDuration: number; // seconds to lock (5-15)
+  units: UnitsSystem;
   // Debug
   debugMode: boolean;
   cheatInfCredits: boolean;
@@ -84,6 +87,7 @@ function defaultSettings(): Settings {
     invertY: false,
     difficulty: 'normal',
     seekerDuration: 8,
+    units: 'metric',
     debugMode: false,
     cheatInfCredits: false,
     cheatGodMode: false,

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { GameState } from '@/state/gameState';
+import type { Settings } from '@/core/settings';
 
 const MAX_ENEMY_MARKERS = 8;
 const CROSSHAIR_AHEAD = 300; // project this far ahead of the plane
@@ -7,6 +8,8 @@ const CROSSHAIR_AHEAD = 300; // project this far ahead of the plane
 export class HUD {
   private speedEl!: HTMLSpanElement;
   private altEl!: HTMLSpanElement;
+  private speedUnitEl!: HTMLSpanElement;
+  private altUnitEl!: HTMLSpanElement;
   private throttleBarEl!: HTMLDivElement;
   private stallWarning!: HTMLDivElement;
   private modeIndicator!: HTMLSpanElement;
@@ -445,12 +448,12 @@ export class HUD {
         <div class="hud-item">
           <span class="hud-label">SPD</span>
           <span class="hud-value" id="hud-speed">0</span>
-          <span class="hud-unit">km/h</span>
+          <span class="hud-unit" id="hud-speed-unit">km/h</span>
         </div>
         <div class="hud-item">
           <span class="hud-label">ALT</span>
           <span class="hud-value" id="hud-alt">0</span>
-          <span class="hud-unit">m</span>
+          <span class="hud-unit" id="hud-alt-unit">m</span>
         </div>
       </div>
       <div class="hud-right">
@@ -478,6 +481,8 @@ export class HUD {
 
     this.speedEl = document.getElementById('hud-speed') as HTMLSpanElement;
     this.altEl = document.getElementById('hud-alt') as HTMLSpanElement;
+    this.speedUnitEl = document.getElementById('hud-speed-unit') as HTMLSpanElement;
+    this.altUnitEl = document.getElementById('hud-alt-unit') as HTMLSpanElement;
     this.throttleBarEl = document.getElementById('hud-throttle') as HTMLDivElement;
     this.stallWarning = document.getElementById('hud-stall') as HTMLDivElement;
     this.modeIndicator = document.getElementById('hud-mode') as HTMLSpanElement;
@@ -564,13 +569,26 @@ export class HUD {
     this.container.style.display = visible ? 'block' : 'none';
   }
 
-  update(state: GameState, camera: THREE.Camera): void {
+  update(state: GameState, camera: THREE.Camera, settings: Settings): void {
     const player = state.player;
     const combat = state.combat;
 
     // ── Basic gauges ─────────────────────────────────────────────────────
-    this.speedEl.textContent = Math.round(player.speed * 3.6).toString();
-    this.altEl.textContent = Math.round(player.altitude).toString();
+    // Convert based on units setting
+    if (settings.units === 'imperial') {
+      // Speed: m/s to knots (1 m/s = 1.94384 knots)
+      this.speedEl.textContent = Math.round(player.speed * 1.94384).toString();
+      this.speedUnitEl.textContent = 'kts';
+      // Altitude: meters to feet (1 m = 3.28084 ft)
+      this.altEl.textContent = Math.round(player.altitude * 3.28084).toString();
+      this.altUnitEl.textContent = 'ft';
+    } else {
+      // Metric: km/h and meters
+      this.speedEl.textContent = Math.round(player.speed * 3.6).toString();
+      this.speedUnitEl.textContent = 'km/h';
+      this.altEl.textContent = Math.round(player.altitude).toString();
+      this.altUnitEl.textContent = 'm';
+    }
     this.throttleBarEl.style.height = `${player.throttle * 100}%`;
     this.stallWarning.className = player.isStalling
       ? 'stall-warning active'
