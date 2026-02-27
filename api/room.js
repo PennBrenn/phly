@@ -9,32 +9,25 @@
  * Codes expire after 10 minutes automatically.
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-interface RoomEntry {
-  peerId: string;
-  createdAt: number;
-}
-
 // Module-level map persists across warm invocations within the same instance
-const rooms = new Map<string, RoomEntry>();
+const rooms = new Map();
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-function pruneExpired(): void {
+function pruneExpired() {
   const now = Date.now();
   for (const [code, entry] of rooms.entries()) {
     if (now - entry.createdAt > TTL_MS) rooms.delete(code);
   }
 }
 
-function generateCode(): string {
+function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
   let code = '';
   for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(req, res) {
   try {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
@@ -46,11 +39,11 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
     pruneExpired();
 
-    const action = req.query.action as string;
+    const action = req.query.action;
 
     if (req.method === 'POST' && action === 'create') {
       // Vercel should parse JSON automatically, but handle both cases
-      let body: any;
+      let body;
       try {
         body = req.body;
         if (typeof body === 'string') {
@@ -80,7 +73,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST' && action === 'join') {
-      let body: any;
+      let body;
       try {
         body = req.body;
         if (typeof body === 'string') {
@@ -104,7 +97,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'DELETE') {
-      let body: any;
+      let body;
       try {
         body = req.body;
         if (typeof body === 'string') {
