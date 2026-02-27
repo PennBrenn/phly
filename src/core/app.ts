@@ -824,6 +824,19 @@ export class App {
     if (isDead && !this.wasDead) {
       this.cameraController.shake(3.5);
       this.crashOverlay.style.display = 'flex';
+      
+      // Mission ends immediately on death if "survive" objective exists (Return alive / 1-life)
+      if (this.gameStarted && this.activeMission?.objectives) {
+        const hasSurviveObjective = this.activeMission.objectives.some(obj => obj.type === 'survive');
+        if (hasSurviveObjective) {
+          // Delay failure slightly to show crash
+          setTimeout(() => {
+            if (this.gameStarted && this.state.player.isDead) {
+              this.completeMission(false);
+            }
+          }, 1500);
+        }
+      }
     } else if (!isDead && this.wasDead) {
       this.crashOverlay.style.display = 'none';
       this.cameraController.resetTracking();
