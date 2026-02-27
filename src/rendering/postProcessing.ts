@@ -13,10 +13,10 @@ const GodRayScreenShader = {
   uniforms: {
     tDiffuse: { value: null },
     uSunScreenPos: { value: new THREE.Vector2(0.5, 0.3) },
-    uIntensity: { value: 0.35 },
+    uIntensity: { value: 0.12 },
     uDecay: { value: 0.96 },
     uDensity: { value: 0.8 },
-    uWeight: { value: 0.4 },
+    uWeight: { value: 0.35 },
     uSamples: { value: 40 },
   },
   vertexShader: `
@@ -50,7 +50,7 @@ const GodRayScreenShader = {
         illumination *= uDecay;
       }
       // Blend with distance falloff so rays don't dominate when looking away
-      float falloff = max(0.0, 1.0 - dist * 1.2);
+      float falloff = max(0.0, 1.0 - dist * 0.5);
       gl_FragColor = color + color * uIntensity * falloff;
     }
   `,
@@ -99,7 +99,7 @@ export class PostProcessing {
 
     // 3. God rays (screen-space radial light scatter)
     this.godRayPass = new ShaderPass(GodRayScreenShader);
-    this.godRayPass.uniforms.uIntensity.value = 0.3;
+    this.godRayPass.uniforms.uIntensity.value = 0.12;
     this.composer.addPass(this.godRayPass);
 
     // 4. Chromatic aberration (subtle RGB shift)
