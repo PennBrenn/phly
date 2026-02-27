@@ -1,0 +1,13 @@
+{
+  "id": "slam",
+  "name": "Slam Cannon",
+  "type": "gun",
+  "bulletSpeed": 750,
+  "bulletMaxAge": 2.2,
+  "fireRate": 4,
+  "damage": 28,
+  "spread": 0.002,
+  "ammo": -1,
+  "poolSize": 15,
+  "model": null
+}

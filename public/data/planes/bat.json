@@ -1,7 +1,9 @@
 {
   "id": "bat",
   "name": "Bat",
-  "description": "TO BE ADDED",
+  "description": "Stealthy strike platform with wide wings. Hits hard, disappears.",
+  "role": "strike",
+  "gun": "slam",
   "model": "/models/planes/bat.glb",
   "mass": 5500,
   "maxThrust": 40000,
@@ -24,10 +26,12 @@
   "statAgility": 7,
   "engines": [{ "x": -1.5, "y": -0.1, "z": 2.0 }, { "x": 1.5, "y": -0.1, "z": 2.0 }],
   "weaponSlots": [
-    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 1, "weaponId": "slam", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
     { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -3.0, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 3.0, "y": -0.5, "z": 0 } },
-    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
+    { "slot": 4, "weaponId": "mini", "hardpoint": { "x": -2.0, "y": -0.6, "z": 0.5 } },
+    { "slot": 5, "weaponId": "mini", "hardpoint": { "x": 2.0, "y": -0.6, "z": 0.5 } },
+    { "slot": 6, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
   ],
-  "ordnanceSlots": [2, 3]
+  "ordnanceSlots": [2, 3, 4, 5]
 }

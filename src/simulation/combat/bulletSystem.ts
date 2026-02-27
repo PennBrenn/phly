@@ -41,22 +41,19 @@ export function updateBulletSystem(state: GameState): void {
   }
   combat.fireCooldown = Math.max(0, combat.fireCooldown - dt);
 
-  // ── Player gun firing (selected slot must be a gun) ────────────────────
-  // Don't fire gun when seeker is active and locked (click fires missile instead)
-  const seekerConsumesFire = combat.seeker.active && combat.seeker.locked;
-  const selSlot = combat.weaponSlots.find(ws => ws.slot === combat.selectedSlot);
-  if (state.input.fire && selSlot && !seekerConsumesFire) {
-    const wData = getWeaponSync(selSlot.weaponId);
-    if (wData && wData.type === 'gun' && selSlot.cooldown <= 0) {
+  // ── Player gun firing (Space bar — always slot 1, the plane's gun) ──────
+  const gunSlot = combat.weaponSlots.find(ws => ws.slot === 1);
+  if (state.input.fireGun && gunSlot) {
+    const wData = getWeaponSync(gunSlot.weaponId);
+    if (wData && wData.type === 'gun' && gunSlot.cooldown <= 0) {
       const fwd = quatRotateVec3(state.player.rotation, { x: 0, y: 0, z: -1 });
-      // Spawn slightly ahead of the plane nose
       const spawnPos = vec3Add(state.player.position, vec3Scale(fwd, 8));
       const bSpeed = wData.bulletSpeed ?? BULLET_SPEED;
       const bDmg = wData.damage ?? 8;
       if (fireBullet(combat.bullets, spawnPos, fwd, 0, bSpeed, bDmg)) {
         const rate = wData.fireRate ?? BULLET_FIRE_RATE;
-        selSlot.cooldown = 1 / rate;
-        combat.fireCooldown = selSlot.cooldown;
+        gunSlot.cooldown = 1 / rate;
+        combat.fireCooldown = gunSlot.cooldown;
       }
     }
   }

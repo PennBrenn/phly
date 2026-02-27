@@ -40,9 +40,10 @@ export interface InputState {
   roll: number;
   throttleUp: boolean;
   throttleDown: boolean;
-  fire: boolean;            // left mouse / selected weapon fire
+  fireGun: boolean;         // Space = fire plane's gun
+  fire: boolean;            // left mouse = fire selected ordnance
   fireMissile: boolean;     // legacy (now fires selected slot weapon)
-  seekerEngage: boolean;    // space = toggle seeker
+  seekerEngage: boolean;    // auto when missile selected + mouse held
   deployCountermeasure: boolean; // X key = chaff/flare
   afterburnerToggle: boolean;  // shift = afterburner
   selectSlot: number;       // 0 = no change, 1-5 = slot selection
@@ -111,6 +112,7 @@ export function createGameState(): GameState {
       roll: 0,
       throttleUp: false,
       throttleDown: false,
+      fireGun: false,
       fire: false,
       fireMissile: false,
       seekerEngage: false,

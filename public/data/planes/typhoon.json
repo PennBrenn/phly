@@ -1,7 +1,9 @@
 {
   "id": "typhoon",
   "name": "Typhoon",
-  "description": "TO BE ADDED",
+  "description": "Fast interceptor with excellent climb rate. Built to chase.",
+  "role": "interceptor",
+  "gun": "gatling",
   "model": "/models/planes/typhoon.glb",
   "mass": 7500,
   "maxThrust": 52000,
@@ -24,10 +26,12 @@
   "statAgility": 8,
   "engines": [{ "x": -1.0, "y": -0.15, "z": 2.8 }, { "x": 1.0, "y": -0.15, "z": 2.8 }],
   "weaponSlots": [
-    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 1, "weaponId": "gatling", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
     { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -2.5, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 2.5, "y": -0.5, "z": 0 } },
-    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
+    { "slot": 4, "weaponId": "mini", "hardpoint": { "x": -1.5, "y": -0.6, "z": 0.3 } },
+    { "slot": 5, "weaponId": "mini", "hardpoint": { "x": 1.5, "y": -0.6, "z": 0.3 } },
+    { "slot": 6, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
   ],
-  "ordnanceSlots": [2, 3]
+  "ordnanceSlots": [2, 3, 4, 5]
 }

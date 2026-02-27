@@ -1,0 +1,14 @@
+{
+  "id": "cluster",
+  "name": "Cluster Bomb",
+  "type": "bomb",
+  "damage": 40,
+  "blastRadius": 60,
+  "dropSpeed": 0,
+  "gravity": 9.8,
+  "submunitions": 6,
+  "ammo": 1,
+  "cooldown": 2.5,
+  "price": 1500,
+  "model": null
+}

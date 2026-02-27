@@ -1,0 +1,15 @@
+{
+  "id": "zuni",
+  "name": "Zuni Rocket",
+  "type": "rocket",
+  "speed": 350,
+  "maxAge": 3.5,
+  "damage": 50,
+  "spread": 0.01,
+  "salvoCount": 2,
+  "salvoDelay": 0.12,
+  "ammo": 4,
+  "cooldown": 0.8,
+  "price": 500,
+  "model": null
+}

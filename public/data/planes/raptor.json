@@ -1,7 +1,9 @@
 {
   "id": "raptor",
   "name": "Raptor",
-  "description": "TO BE ADDED",
+  "description": "Air dominance interceptor. Supercruise and stealth.",
+  "role": "interceptor",
+  "gun": "slam",
   "model": "/models/planes/raptor.glb",
   "mass": 9000,
   "maxThrust": 65000,
@@ -24,10 +26,12 @@
   "statAgility": 9,
   "engines": [{ "x": -1.2, "y": -0.2, "z": 3.0 }, { "x": 1.2, "y": -0.2, "z": 3.0 }],
   "weaponSlots": [
-    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3.5 } },
+    { "slot": 1, "weaponId": "slam", "hardpoint": { "x": 0, "y": -0.3, "z": -3.5 } },
     { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -2.8, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 2.8, "y": -0.5, "z": 0 } },
-    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 2.0 } }
+    { "slot": 4, "weaponId": "mini", "hardpoint": { "x": -1.5, "y": -0.6, "z": 0.3 } },
+    { "slot": 5, "weaponId": "mini", "hardpoint": { "x": 1.5, "y": -0.6, "z": 0.3 } },
+    { "slot": 6, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 2.0 } }
   ],
-  "ordnanceSlots": [2, 3]
+  "ordnanceSlots": [2, 3, 4, 5]
 }

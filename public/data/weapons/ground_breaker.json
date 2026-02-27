@@ -1,0 +1,13 @@
+{
+  "id": "ground_breaker",
+  "name": "Ground Breaker",
+  "type": "gun",
+  "bulletSpeed": 650,
+  "bulletMaxAge": 2.8,
+  "fireRate": 3,
+  "damage": 35,
+  "spread": 0.004,
+  "ammo": -1,
+  "poolSize": 12,
+  "model": null
+}

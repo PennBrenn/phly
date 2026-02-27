@@ -3,7 +3,7 @@
 export interface WeaponData {
   id: string;
   name: string;
-  type: 'gun' | 'missile' | 'countermeasure';
+  type: 'gun' | 'missile' | 'bomb' | 'rocket' | 'countermeasure';
   // Gun fields
   bulletSpeed?: number;
   bulletMaxAge?: number;
@@ -23,6 +23,13 @@ export interface WeaponData {
   seekerTimeMax?: number;
   cooldown?: number;
   submunitions?: number;
+  // Bomb fields
+  blastRadius?: number;
+  dropSpeed?: number;
+  gravity?: number;
+  // Rocket fields
+  salvoCount?: number;
+  salvoDelay?: number;
   // Countermeasure fields
   effectDuration?: number;
   missileBreakChance?: number;
@@ -42,10 +49,14 @@ export interface EnginePosition {
   z: number;
 }
 
+export type PlaneRole = 'fighter' | 'interceptor' | 'multi-role' | 'strike';
+
 export interface PlaneData {
   id: string;
   name: string;
   description?: string;
+  role: PlaneRole;
+  gun: string;
   model: string;
   mass: number;
   maxThrust: number;

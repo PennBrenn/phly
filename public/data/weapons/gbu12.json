@@ -1,0 +1,13 @@
+{
+  "id": "gbu12",
+  "name": "GBU-12 Guided Bomb",
+  "type": "bomb",
+  "damage": 120,
+  "blastRadius": 40,
+  "dropSpeed": 0,
+  "gravity": 9.8,
+  "ammo": 1,
+  "cooldown": 2.0,
+  "price": 800,
+  "model": null
+}

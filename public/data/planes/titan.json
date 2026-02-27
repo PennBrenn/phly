@@ -2,6 +2,8 @@
   "id": "titan",
   "name": "Titan",
   "description": "Insane health and armor. A flying fortress.",
+  "role": "strike",
+  "gun": "ground_breaker",
   "model": "/models/planes/titan.glb",
   "mass": 12000,
   "maxThrust": 60000,
@@ -27,10 +29,14 @@
     { "x": 1.5, "y": -0.2, "z": 3.0 }
   ],
   "weaponSlots": [
-    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3.5 } },
+    { "slot": 1, "weaponId": "ground_breaker", "hardpoint": { "x": 0, "y": -0.3, "z": -3.5 } },
     { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -3.0, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 3.0, "y": -0.5, "z": 0 } },
-    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 2.0 } }
+    { "slot": 4, "weaponId": "mini", "hardpoint": { "x": -2.0, "y": -0.7, "z": 0.5 } },
+    { "slot": 5, "weaponId": "mini", "hardpoint": { "x": 2.0, "y": -0.7, "z": 0.5 } },
+    { "slot": 6, "weaponId": "mini", "hardpoint": { "x": -1.0, "y": -0.8, "z": 1.0 } },
+    { "slot": 7, "weaponId": "mini", "hardpoint": { "x": 1.0, "y": -0.8, "z": 1.0 } },
+    { "slot": 8, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 2.0 } }
   ],
-  "ordnanceSlots": [2, 3]
+  "ordnanceSlots": [2, 3, 4, 5, 6, 7]
 }

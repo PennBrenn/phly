@@ -52,11 +52,14 @@ export class InputManager {
     input.throttleUp = this.keys.has('KeyR');
     input.throttleDown = this.keys.has('KeyF');
 
-    // Fire: left mouse button (fires selected weapon)
+    // Fire gun: Space bar
+    input.fireGun = this.keys.has('Space');
+
+    // Fire ordnance: left mouse button (fires selected ordnance slot)
     input.fire = this.mouseDown;
 
-    // Seeker engage: hold Space to engage missile seeker
-    input.seekerEngage = this.keys.has('Space');
+    // Seeker engage: automatic when missile is selected (handled by combat system)
+    input.seekerEngage = this.mouseDown;
 
     // Legacy compat
     input.fireMissile = false;

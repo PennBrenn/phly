@@ -1,0 +1,15 @@
+{
+  "id": "mighty_mouse",
+  "name": "Mighty Mouse Rocket",
+  "type": "rocket",
+  "speed": 280,
+  "maxAge": 2.5,
+  "damage": 20,
+  "spread": 0.03,
+  "salvoCount": 7,
+  "salvoDelay": 0.06,
+  "ammo": 14,
+  "cooldown": 0.3,
+  "price": 400,
+  "model": null
+}

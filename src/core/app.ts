@@ -6,7 +6,7 @@ import { updateMissileSystem } from '@/simulation/combat/missileSystem';
 import { updateCollisionSystem } from '@/simulation/combat/collisionSystem';
 import { updateEnemyAI } from '@/simulation/ai/enemyAI';
 import { updateOOBSystem } from '@/simulation/physics/oobSystem';
-import { loadWeapon, loadMission, preloadMissionData, loadPlane } from '@/utils/dataLoader';
+import { loadWeapon, loadMission, preloadMissionData, loadPlane, getWeaponSync } from '@/utils/dataLoader';
 import type { MissionData, PlaneData } from '@/utils/dataLoader';
 import type { Difficulty } from '@/state/combatState';
 import { InputManager } from '@/input/inputManager';
@@ -368,17 +368,29 @@ export class App {
         }
       }
 
-      // Apply loadout weapon slots
+      // Apply loadout weapon slots — slot 1 is always the plane's gun
       const lo = this.upgrades.loadout;
-      this.state.combat.weaponSlots = lo.weaponSlots.map(ws => ({
-        slot: ws.slot,
-        weaponId: ws.weaponId,
-        ammo: ws.weaponId === 'cannon' ? -1 : ws.weaponId === 'chaff' ? 12 : 2,
-        cooldown: 0,
-      }));
-      this.state.combat.selectedSlot = 1;
+      this.state.combat.weaponSlots = lo.weaponSlots.map(ws => {
+        // Override slot 1 with the plane's gun (from plane data, not loadout)
+        const weaponId = ws.slot === 1 && planeData?.gun ? planeData.gun : ws.weaponId;
+        // Determine ammo: guns = infinite, missiles from data, chaff = 12
+        let ammo = -1;
+        try {
+          const wData = getWeaponSync(weaponId);
+          if (wData) {
+            if (wData.type === 'gun') ammo = -1;
+            else if (wData.type === 'countermeasure') ammo = 12;
+            else ammo = wData.ammo ?? 2;
+          }
+        } catch { /* fallback */ }
+        return { slot: ws.slot, weaponId, ammo, cooldown: 0 };
+      });
+      this.state.combat.selectedSlot = 2;
 
-      // Pre-load loadout weapons
+      // Pre-load loadout weapons + plane gun
+      if (planeData?.gun) {
+        try { await loadWeapon(planeData.gun); } catch { /* skip */ }
+      }
       for (const ws of lo.weaponSlots) {
         try { await loadWeapon(ws.weaponId); } catch { /* skip */ }
       }

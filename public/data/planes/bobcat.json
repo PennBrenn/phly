@@ -1,7 +1,9 @@
 {
   "id": "bobcat",
   "name": "Bobcat",
-  "description": "TO BE ADDED",
+  "description": "Nimble dogfighter with a nasty gatling. Born for air combat.",
+  "role": "fighter",
+  "gun": "gatling",
   "model": "/models/planes/bobcat.glb",
   "mass": 6500,
   "maxThrust": 45000,
@@ -24,7 +26,7 @@
   "statAgility": 8,
   "engines": [{ "x": 0, "y": -0.12, "z": 2.5 }],
   "weaponSlots": [
-    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 1, "weaponId": "gatling", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
     { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -2.2, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 2.2, "y": -0.5, "z": 0 } },
     { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }

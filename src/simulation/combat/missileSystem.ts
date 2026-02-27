@@ -38,9 +38,16 @@ function findSeekerTarget(enemies: EnemyState[], playerPos: Vec3, playerFwd: Vec
   return bestId;
 }
 
-// ── Seeker system: Space activates seeker for duration, click fires when locked
-let seekerToggleConsumed = false;
+// ── Seeker system: hold left-click to engage (only when missile is selected)
 let fireMissileConsumed = false;
+
+/** Check if selected slot has a missile. */
+function selectedSlotHasMissile(combat: any): boolean {
+  const sel = combat.weaponSlots.find((ws: any) => ws.slot === combat.selectedSlot);
+  if (!sel) return false;
+  const wd = getWeaponSync(sel.weaponId);
+  return wd?.type === 'missile' && sel.ammo > 0;
+}
 
 function updateSeekerSystem(state: GameState): void {
   const dt = state.time.delta;
@@ -48,26 +55,24 @@ function updateSeekerSystem(state: GameState): void {
   const seeker = combat.seeker;
   const playerFwd = quatRotateVec3(state.player.rotation, { x: 0, y: 0, z: -1 });
 
-  // Toggle seeker on/off with Space (edge-triggered)
-  if (state.input.seekerEngage) {
-    if (!seekerToggleConsumed) {
-      seekerToggleConsumed = true;
-      if (!seeker.active) {
-        // Activate seeker
-        seeker.active = true;
-        seeker.seekTimer = 0;
-        seeker.locked = false;
-        seeker.targetId = findSeekerTarget(combat.enemies, state.player.position, playerFwd);
-      } else {
-        // Deactivate seeker manually
-        seeker.active = false;
-        seeker.seekTimer = 0;
-        seeker.locked = false;
-        seeker.targetId = -1;
-      }
+  const hasMissile = selectedSlotHasMissile(combat);
+
+  // Hold left-click to engage seeker (only if missile is selected)
+  if (state.input.seekerEngage && hasMissile) {
+    if (!seeker.active) {
+      seeker.active = true;
+      seeker.seekTimer = 0;
+      seeker.locked = false;
+      seeker.targetId = findSeekerTarget(combat.enemies, state.player.position, playerFwd);
     }
-  } else {
-    seekerToggleConsumed = false;
+  } else if (!hasMissile || !state.input.seekerEngage) {
+    // Release or no missile — deactivate
+    if (seeker.active && !seeker.locked) {
+      seeker.active = false;
+      seeker.seekTimer = 0;
+      seeker.locked = false;
+      seeker.targetId = -1;
+    }
   }
 
   // While seeker is active, update tracking

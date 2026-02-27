@@ -1,0 +1,13 @@
+{
+  "id": "pellet",
+  "name": "Pellet Gun",
+  "type": "gun",
+  "bulletSpeed": 700,
+  "bulletMaxAge": 1.5,
+  "fireRate": 18,
+  "damage": 4,
+  "spread": 0.015,
+  "ammo": -1,
+  "poolSize": 50,
+  "model": null
+}

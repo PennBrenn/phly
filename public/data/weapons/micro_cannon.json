@@ -1,0 +1,13 @@
+{
+  "id": "micro_cannon",
+  "name": "Micro Cannon",
+  "type": "gun",
+  "bulletSpeed": 850,
+  "bulletMaxAge": 1.6,
+  "fireRate": 22,
+  "damage": 5,
+  "spread": 0.008,
+  "ammo": -1,
+  "poolSize": 50,
+  "model": null
+}

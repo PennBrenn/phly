@@ -1,7 +1,9 @@
 {
   "id": "ghost",
   "name": "Ghost",
-  "description": "TO BE ADDED",
+  "description": "Stealth air superiority fighter. Silent and precise.",
+  "role": "fighter",
+  "gun": "micro_cannon",
   "model": "/models/planes/ghost.glb",
   "mass": 7000,
   "maxThrust": 55000,
@@ -24,7 +26,7 @@
   "statAgility": 9,
   "engines": [{ "x": -1.0, "y": -0.15, "z": 2.8 }, { "x": 1.0, "y": -0.15, "z": 2.8 }],
   "weaponSlots": [
-    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 1, "weaponId": "micro_cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
     { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -2.5, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 2.5, "y": -0.5, "z": 0 } },
     { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }

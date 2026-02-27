@@ -2,6 +2,8 @@
   "id": "delta",
   "name": "Delta",
   "description": "Light, fast, jack of all trades.",
+  "role": "interceptor",
+  "gun": "autocannon",
   "model": "/models/planes/delta.glb",
   "mass": 7000,
   "maxThrust": 50000,
@@ -26,7 +28,7 @@
     { "x": 0, "y": -0.15, "z": 2.8 }
   ],
   "weaponSlots": [
-    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 1, "weaponId": "autocannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
     { "slot": 2, "weaponId": "sidewinder", "hardpoint": { "x": -2.5, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "sidewinder", "hardpoint": { "x": 2.5, "y": -0.5, "z": 0 } },
     { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }

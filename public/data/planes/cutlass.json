@@ -1,7 +1,9 @@
 {
   "id": "cutlass",
   "name": "Cutlass",
-  "description": "TO BE ADDED",
+  "description": "Balanced multirole fighter. Good at everything, great at nothing.",
+  "role": "multi-role",
+  "gun": "autocannon",
   "model": "/models/planes/cutlass.glb",
   "mass": 7000,
   "maxThrust": 50000,
@@ -24,10 +26,12 @@
   "statAgility": 6,
   "engines": [{ "x": 0, "y": -0.15, "z": 2.5 }],
   "weaponSlots": [
-    { "slot": 1, "weaponId": "cannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
+    { "slot": 1, "weaponId": "autocannon", "hardpoint": { "x": 0, "y": -0.3, "z": -3 } },
     { "slot": 2, "weaponId": "mini", "hardpoint": { "x": -2.5, "y": -0.5, "z": 0 } },
     { "slot": 3, "weaponId": "mini", "hardpoint": { "x": 2.5, "y": -0.5, "z": 0 } },
-    { "slot": 4, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
+    { "slot": 4, "weaponId": "mini", "hardpoint": { "x": -1.5, "y": -0.6, "z": 0.5 } },
+    { "slot": 5, "weaponId": "mini", "hardpoint": { "x": 1.5, "y": -0.6, "z": 0.5 } },
+    { "slot": 6, "weaponId": "chaff", "hardpoint": { "x": 0, "y": 0.2, "z": 1.5 } }
   ],
-  "ordnanceSlots": [2, 3]
+  "ordnanceSlots": [2, 3, 4, 5]
 }
