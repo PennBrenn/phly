@@ -81,6 +81,7 @@ export class App {
   private wasDead = false;
   private crashOverlay!: HTMLDivElement;
   private modelLoader!: ModelLoader;
+  private transitionLoadingScreen: LoadingScreen | null = null;
   private canvas!: HTMLCanvasElement;
   // Mission tracking
   private activeMission: MissionData | null = null;
@@ -537,8 +538,13 @@ export class App {
   }
 
   private async startMissionFromData(mission: MissionData): Promise<void> {
+    // Show loading screen during mission transition
+    this.transitionLoadingScreen = new LoadingScreen();
+    this.transitionLoadingScreen.setProgress(0.1);
+    
     try {
       await preloadMissionData(mission);
+      this.transitionLoadingScreen.setProgress(0.3);
       this.activeMission = mission;
 
       const planeId = this.upgrades.loadout.planeId;
@@ -575,6 +581,7 @@ export class App {
       for (const ws of lo.weaponSlots) {
         try { await loadWeapon(ws.weaponId); } catch { /* skip */ }
       }
+      this.transitionLoadingScreen.setProgress(0.5);
 
       try {
         const modelPath = planeData?.model ?? `/models/planes/${planeId}.glb`;
@@ -587,9 +594,11 @@ export class App {
       } catch {
         console.warn('[App] Could not load plane model, using primitive fallback.');
       }
+      this.transitionLoadingScreen.setProgress(0.7);
 
       // Rebuild scene with mission biome and terrain
       this.rebuildSceneForMission(mission);
+      this.transitionLoadingScreen.setProgress(0.9);
       
       applyMissionToState(this.state, mission, this.settings.difficulty);
 
@@ -610,8 +619,21 @@ export class App {
       this.playerMesh.group.visible = true;
       this.clock.getDelta();
       this.canvas.focus();
+      
+      // Hide loading screen after a brief delay to ensure everything is rendered
+      this.transitionLoadingScreen.setProgress(1.0);
+      setTimeout(() => {
+        if (this.transitionLoadingScreen) {
+          this.transitionLoadingScreen.hide();
+          this.transitionLoadingScreen = null;
+        }
+      }, 200);
     } catch (err) {
       console.error('[App] Failed to start test mission:', err);
+      if (this.transitionLoadingScreen) {
+        this.transitionLoadingScreen.hide();
+        this.transitionLoadingScreen = null;
+      }
     }
   }
 
