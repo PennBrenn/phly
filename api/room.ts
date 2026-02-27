@@ -34,14 +34,6 @@ function generateCode(): string {
   return code;
 }
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '1mb',
-    },
-  },
-};
-
 export default function handler(req: VercelRequest, res: VercelResponse) {
   try {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -57,7 +49,17 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     const action = req.query.action as string;
 
     if (req.method === 'POST' && action === 'create') {
-      const body = req.body as { peerId?: string } | undefined;
+      // Vercel should parse JSON automatically, but handle both cases
+      let body: any;
+      try {
+        body = req.body;
+        if (typeof body === 'string') {
+          body = JSON.parse(body);
+        }
+      } catch (e) {
+        console.error('[Room] JSON parse error:', e);
+        return res.status(400).json({ error: 'Invalid JSON' });
+      }
       const peerId = body?.peerId;
       if (!peerId) {
         console.error('[Room] Missing peerId, body:', JSON.stringify(body));
@@ -78,7 +80,16 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST' && action === 'join') {
-      const body = req.body as { code?: string } | undefined;
+      let body: any;
+      try {
+        body = req.body;
+        if (typeof body === 'string') {
+          body = JSON.parse(body);
+        }
+      } catch (e) {
+        console.error('[Room] JSON parse error (join):', e);
+        return res.status(400).json({ error: 'Invalid JSON' });
+      }
       const code = body?.code;
       if (!code) {
         console.error('[Room] Missing code, body:', JSON.stringify(body));
@@ -93,7 +104,16 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'DELETE') {
-      const body = req.body as { code?: string } | undefined;
+      let body: any;
+      try {
+        body = req.body;
+        if (typeof body === 'string') {
+          body = JSON.parse(body);
+        }
+      } catch (e) {
+        console.error('[Room] JSON parse error (delete):', e);
+        return res.status(400).json({ error: 'Invalid JSON' });
+      }
       const code = body?.code;
       if (code) rooms.delete(code.toUpperCase());
       return res.status(200).json({ ok: true });
