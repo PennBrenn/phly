@@ -114,7 +114,7 @@ export function createScene(biome: BiomeType = 'temperate'): THREE.Scene {
   scene.fog = new THREE.FogExp2(palette.fog.getHex(), 0.000018);
 
   // Gradient sky dome
-  const skyGeo = new THREE.SphereGeometry(18000, 32, 16);
+  const skyGeo = new THREE.SphereGeometry(25000, 32, 16);
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -170,7 +170,7 @@ export function createLights(scene: THREE.Scene, shadows = true): {
   ambient: THREE.HemisphereLight;
 } {
   const sun = new THREE.DirectionalLight(0xfff0dd, 2.2);
-  sun.position.set(600, 800, 400);
+  sun.position.set(600, 1200, 400);
 
   if (shadows) {
     sun.castShadow = true;
