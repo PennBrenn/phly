@@ -91,7 +91,7 @@ export class LevelEditor {
   private levelId = 'custom_level';
   private levelName = 'Custom Level';
   private levelDescription = 'A custom level.';
-  private levelBiome = 'plains';
+  private levelBiome: 'temperate' | 'desert' | 'arctic' | 'volcanic' | 'tropical' = 'temperate';
   private terrainSeed = 7742;
   private timeLimitSeconds = 300;
   private bounds = defaultBounds();
@@ -236,6 +236,14 @@ export class LevelEditor {
       <div class="sep"></div>
       <label>Seed:</label>
       <input type="number" id="ed-seed" value="${this.terrainSeed}" style="width:70px;" />
+      <label>Biome:</label>
+      <select id="ed-biome" style="width:90px;">
+        <option value="temperate">Temperate</option>
+        <option value="desert">Desert</option>
+        <option value="arctic">Arctic</option>
+        <option value="volcanic">Volcanic</option>
+        <option value="tropical">Tropical</option>
+      </select>
       <label>Name:</label>
       <input type="text" id="ed-name" value="${this.levelName}" style="width:140px;" />
       <div class="sep"></div>
@@ -288,6 +296,14 @@ export class LevelEditor {
     const seedInput = this.toolbar.querySelector('#ed-seed') as HTMLInputElement;
     seedInput.addEventListener('change', () => {
       this.terrainSeed = parseInt(seedInput.value) || 0;
+      this.buildTerrain();
+      this.updateTerrainPreview();
+    });
+
+    const biomeSelect = this.toolbar.querySelector('#ed-biome') as HTMLSelectElement;
+    biomeSelect.value = this.levelBiome;
+    biomeSelect.addEventListener('change', () => {
+      this.levelBiome = biomeSelect.value as any;
       this.buildTerrain();
       this.updateTerrainPreview();
     });
@@ -433,10 +449,11 @@ export class LevelEditor {
         <label>Description</label><input id="pp-desc" value="${this.levelDescription}" />
         <label>Biome</label>
         <select id="pp-biome">
-          <option value="plains" ${this.levelBiome === 'plains' ? 'selected' : ''}>Plains</option>
+          <option value="temperate" ${this.levelBiome === 'temperate' ? 'selected' : ''}>Temperate</option>
           <option value="desert" ${this.levelBiome === 'desert' ? 'selected' : ''}>Desert</option>
           <option value="arctic" ${this.levelBiome === 'arctic' ? 'selected' : ''}>Arctic</option>
-          <option value="islands" ${this.levelBiome === 'islands' ? 'selected' : ''}>Islands</option>
+          <option value="volcanic" ${this.levelBiome === 'volcanic' ? 'selected' : ''}>Volcanic</option>
+          <option value="tropical" ${this.levelBiome === 'tropical' ? 'selected' : ''}>Tropical</option>
         </select>
         <label>Time Limit (sec)</label><input type="number" id="pp-time" value="${this.timeLimitSeconds}" />
         <label>Credits Reward</label><input type="number" id="pp-credits" value="${this.rewards.credits}" />
@@ -468,7 +485,7 @@ export class LevelEditor {
       };
       bind('pp-id', v => { this.levelId = v; });
       bind('pp-desc', v => { this.levelDescription = v; });
-      bind('pp-biome', v => { this.levelBiome = v; });
+      bind('pp-biome', v => { this.levelBiome = v as any; });
       bind('pp-time', v => { this.timeLimitSeconds = parseInt(v) || 300; });
       bind('pp-credits', v => { this.rewards.credits = parseInt(v) || 0; });
       bind('pp-score', v => { this.rewards.score = parseInt(v) || 0; });
@@ -618,23 +635,47 @@ export class LevelEditor {
     const pos = geo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
 
+    // Biome-based color palettes (simplified for editor)
+    const biomePalettes: Record<string, { water: number[]; low: number[]; mid: number[]; high: number[] }> = {
+      temperate: { water: [0.1, 0.3, 0.5], low: [0.3, 0.5, 0.1], mid: [0.4, 0.4, 0.2], high: [0.6, 0.6, 0.6] },
+      desert: { water: [0.3, 0.2, 0.1], low: [0.9, 0.8, 0.6], mid: [0.7, 0.6, 0.4], high: [0.6, 0.5, 0.4] },
+      arctic: { water: [0.1, 0.3, 0.4], low: [0.7, 0.8, 0.9], mid: [0.8, 0.85, 0.9], high: [0.95, 0.95, 1.0] },
+      volcanic: { water: [0.2, 0.1, 0.1], low: [0.3, 0.2, 0.2], mid: [0.4, 0.3, 0.3], high: [0.5, 0.4, 0.4] },
+      tropical: { water: [0.1, 0.5, 0.5], low: [0.3, 0.7, 0.3], mid: [0.4, 0.6, 0.3], high: [0.5, 0.5, 0.4] },
+    };
+    const palette = biomePalettes[this.levelBiome] || biomePalettes.temperate;
+
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
       const h = getTerrainHeight(x, z);
       pos.setY(i, Math.max(h, -5));
 
-      // Color by height
+      // Color by height using biome palette
       const t = Math.max(0, Math.min(1, h / 2000));
+      let color: number[];
       if (h <= 0) {
-        colors[i * 3] = 0.1; colors[i * 3 + 1] = 0.2 + t * 0.3; colors[i * 3 + 2] = 0.4 + t * 0.2;
-      } else if (t < 0.15) {
-        colors[i * 3] = 0.15 + t; colors[i * 3 + 1] = 0.35 + t * 2; colors[i * 3 + 2] = 0.1;
-      } else if (t < 0.5) {
-        colors[i * 3] = 0.2 + t * 0.3; colors[i * 3 + 1] = 0.25 + t * 0.5; colors[i * 3 + 2] = 0.1;
+        color = palette.water;
+      } else if (t < 0.3) {
+        const blend = t / 0.3;
+        color = [
+          palette.low[0] * (1 - blend * 0.5),
+          palette.low[1] * (1 - blend * 0.5),
+          palette.low[2] * (1 - blend * 0.5),
+        ];
+      } else if (t < 0.7) {
+        color = palette.mid;
       } else {
-        colors[i * 3] = 0.4 + t * 0.4; colors[i * 3 + 1] = 0.38 + t * 0.4; colors[i * 3 + 2] = 0.35 + t * 0.4;
+        const blend = (t - 0.7) / 0.3;
+        color = [
+          palette.mid[0] * (1 - blend) + palette.high[0] * blend,
+          palette.mid[1] * (1 - blend) + palette.high[1] * blend,
+          palette.mid[2] * (1 - blend) + palette.high[2] * blend,
+        ];
       }
+      colors[i * 3] = color[0];
+      colors[i * 3 + 1] = color[1];
+      colors[i * 3 + 2] = color[2];
     }
 
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -1027,7 +1068,7 @@ export class LevelEditor {
     this.levelId = data.id;
     this.levelName = data.name;
     this.levelDescription = data.description;
-    this.levelBiome = data.biome ?? 'plains';
+    this.levelBiome = (data.biome as any) || 'temperate';
     this.terrainSeed = data.terrainSeed;
     this.timeLimitSeconds = data.timeLimitSeconds ?? 300;
     this.bounds = { ...data.bounds };
@@ -1037,6 +1078,7 @@ export class LevelEditor {
 
     // Update UI inputs
     (this.toolbar.querySelector('#ed-seed') as HTMLInputElement).value = String(this.terrainSeed);
+    (this.toolbar.querySelector('#ed-biome') as HTMLSelectElement).value = this.levelBiome;
     (this.toolbar.querySelector('#ed-name') as HTMLInputElement).value = this.levelName;
     (this.toolbar.querySelector('#ed-bounds') as HTMLInputElement).value = String(this.bounds.maxX);
     (this.toolbar.querySelector('#ed-ceiling') as HTMLInputElement).value = String(this.bounds.ceiling);
@@ -1177,6 +1219,7 @@ export class LevelEditor {
     this.rewards = { credits: 500, score: 1000 };
 
     (this.toolbar.querySelector('#ed-seed') as HTMLInputElement).value = String(this.terrainSeed);
+    (this.toolbar.querySelector('#ed-biome') as HTMLSelectElement).value = this.levelBiome;
     (this.toolbar.querySelector('#ed-name') as HTMLInputElement).value = this.levelName;
     (this.toolbar.querySelector('#ed-bounds') as HTMLInputElement).value = String(this.bounds.maxX);
     (this.toolbar.querySelector('#ed-ceiling') as HTMLInputElement).value = String(this.bounds.ceiling);

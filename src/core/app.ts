@@ -10,7 +10,7 @@ import { loadWeapon, loadMission, preloadMissionData, loadPlane, getWeaponSync }
 import type { MissionData, PlaneData } from '@/utils/dataLoader';
 import type { Difficulty } from '@/state/combatState';
 import { InputManager } from '@/input/inputManager';
-import { createScene, createLights, createTerrain } from '@/rendering/sceneSetup';
+import { createScene, createLights, createTerrain, type BiomeType } from '@/rendering/sceneSetup';
 import { createTerrainProps } from '@/rendering/terrainProps';
 import { setTerrainSeed } from '@/utils/terrain';
 import { PlayerMesh } from '@/rendering/playerMesh';
@@ -132,10 +132,13 @@ export class App {
 
     // Scene — random seed each session for varied menu backgrounds
     setTerrainSeed(Math.floor(Math.random() * 999999));
-    this.scene = createScene();
+    // Random biome for main menu background
+    const menuBiomes: BiomeType[] = ['temperate', 'desert', 'arctic', 'volcanic', 'tropical'];
+    const randomBiome = menuBiomes[Math.floor(Math.random() * menuBiomes.length)];
+    this.scene = createScene(randomBiome);
     const { sun } = createLights(this.scene, this.settings.shadows);
     this.sun = sun;
-    createTerrain(this.scene);
+    createTerrain(this.scene, randomBiome);
     createTerrainProps(this.scene, this.settings.treeDensity);
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.density = this.settings.fogDensity;
@@ -478,6 +481,9 @@ export class App {
         console.warn('[App] Could not load plane model, using primitive fallback.');
       }
 
+      // Rebuild scene with mission biome and terrain
+      this.rebuildSceneForMission(mission);
+      
       // Apply mission to state
       applyMissionToState(this.state, mission, this.settings.difficulty);
 
@@ -582,6 +588,9 @@ export class App {
         console.warn('[App] Could not load plane model, using primitive fallback.');
       }
 
+      // Rebuild scene with mission biome and terrain
+      this.rebuildSceneForMission(mission);
+      
       applyMissionToState(this.state, mission, this.settings.difficulty);
 
       if (mission.objectives?.length) {
@@ -604,6 +613,39 @@ export class App {
     } catch (err) {
       console.error('[App] Failed to start test mission:', err);
     }
+  }
+
+  private rebuildSceneForMission(mission: MissionData): void {
+    // Clear existing terrain
+    const terrain = this.scene.children.find(c => c.type === 'Mesh' && (c as THREE.Mesh).geometry.type === 'PlaneGeometry');
+    if (terrain) this.scene.remove(terrain);
+    const water = this.scene.getObjectByName('water');
+    if (water) this.scene.remove(water);
+    
+    // Remove all props (trees, rocks, bushes)
+    const propsToRemove = this.scene.children.filter(c => 
+      c.type === 'Group' || (c.type === 'Mesh' && c !== this.playerMesh.group && !(c as any).isLight)
+    );
+    propsToRemove.forEach(p => {
+      if (p !== this.playerMesh.group && p !== this.remotePlayerMesh?.group) {
+        this.scene.remove(p);
+      }
+    });
+
+    // Set terrain seed and biome
+    setTerrainSeed(mission.terrainSeed);
+    const biome = (mission.biome as BiomeType) || 'temperate';
+    
+    // Rebuild scene with mission biome
+    this.scene.background = null;
+    this.scene.fog = null;
+    const newScene = createScene(biome);
+    this.scene.background = newScene.background;
+    this.scene.fog = newScene.fog;
+    
+    // Rebuild terrain and props
+    createTerrain(this.scene, biome);
+    createTerrainProps(this.scene, this.settings.treeDensity);
   }
 
   private completeMission(won: boolean): void {
