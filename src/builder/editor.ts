@@ -31,10 +31,10 @@ export interface CatalogItem {
 
 const CATALOG: CatalogItem[] = [
   { type: 'player_spawn', vehicleId: 'player', label: 'Player Spawn', description: 'Starting position & heading for the player aircraft.', color: 0x00ff88, icon: '✈', defaultY: 2500 },
-  { type: 'air_enemy', vehicleId: 'delta', label: 'Delta Fighter', description: 'Agile delta-wing fighter. Fast and nimble.', color: 0xff4444, icon: '△', defaultY: 600 },
-  { type: 'air_enemy', vehicleId: 'mig', label: 'MiG Fighter', description: 'Classic interceptor. Good turn rate.', color: 0xff6644, icon: '◇', defaultY: 700 },
-  { type: 'air_enemy', vehicleId: 'su27', label: 'Su-27 Flanker', description: 'Heavy air superiority fighter. Powerful weapons.', color: 0xff8844, icon: '◆', defaultY: 500 },
-  { type: 'air_enemy', vehicleId: 'f16', label: 'F-16 Viper', description: 'Multirole lightweight fighter. Balanced stats.', color: 0xffaa44, icon: '▽', defaultY: 650 },
+  { type: 'air_enemy', vehicleId: 'flanker', label: 'Flanker', description: 'Medium jack-of-all-trades aircraft. Guns, missiles, basic countermeasures.', color: 0xff4444, icon: '△', defaultY: 800 },
+  { type: 'air_enemy', vehicleId: 'doomsday', label: 'Doomsday', description: 'Bomber with many turrets. No countermeasures. High threat.', color: 0xff6644, icon: '◇', defaultY: 1200 },
+  { type: 'air_enemy', vehicleId: 'cobra', label: 'Cobra', description: 'Hypermaneuverable jet. Few missiles, advanced countermeasures.', color: 0xff8844, icon: '◆', defaultY: 600 },
+  { type: 'air_enemy', vehicleId: 'axis', label: 'Axis', description: 'Interceptor. Extremely powerful missiles, basic countermeasures.', color: 0xffaa44, icon: '▽', defaultY: 900 },
   { type: 'ground_enemy', vehicleId: 'tank', label: 'Tank', description: 'Armored ground vehicle. Can patrol an area.', color: 0x88aa44, icon: '■', defaultY: 0 },
   { type: 'ground_enemy', vehicleId: 'sam', label: 'SAM Site', description: 'Surface-to-air missile launcher. Stationary threat.', color: 0xaa4444, icon: '▲', defaultY: 0 },
   { type: 'ground_enemy', vehicleId: 'aa_gun', label: 'AA Gun', description: 'Anti-aircraft gun emplacement. Rapid fire.', color: 0xaaaa44, icon: '✦', defaultY: 0 },
@@ -509,7 +509,15 @@ export class LevelEditor {
     };
     bind('pp-vehicle', v => { obj.vehicleId = v; this.updateObjectMesh(obj); this.updateObjectList(); });
     bind('pp-px', v => { obj.position.x = parseFloat(v) || 0; obj.mesh.position.x = obj.position.x; });
-    bind('pp-py', v => { obj.position.y = parseFloat(v) || 0; });
+    bind('pp-py', v => { 
+      obj.position.y = parseFloat(v) || 0;
+      // Update mesh Y: air enemies show at actual altitude, ground enemies offset
+      if (obj.type === 'air_enemy') {
+        obj.mesh.position.y = obj.position.y;
+      } else if (obj.type === 'ground_enemy') {
+        obj.mesh.position.y = obj.position.y + 20;
+      }
+    });
     bind('pp-pz', v => { obj.position.z = parseFloat(v) || 0; obj.mesh.position.z = obj.position.z; });
     bind('pp-patrol', v => { obj.patrolIndex = parseInt(v) || 0; });
     bind('pp-moving', v => { obj.moving = v === 'true'; });
@@ -721,15 +729,28 @@ export class LevelEditor {
       }
     }
 
+    // Determine actual Y position
+    let actualY = item.defaultY;
+    let meshY = 50; // Visual height above ground for air, slight offset for ground
+    
+    if (item.type === 'ground_enemy') {
+      // Sample terrain height for ground objects
+      actualY = getTerrainHeight(worldPos.x, worldPos.z);
+      meshY = actualY + 20; // Slight visual offset above terrain
+    } else if (item.type === 'air_enemy') {
+      // Air enemies: mesh Y = actual altitude for proper visualization
+      meshY = actualY;
+    }
+
     const mesh = this.createObjectMesh(item);
-    mesh.position.set(worldPos.x, item.type === 'ground_enemy' ? 20 : 50, worldPos.z);
+    mesh.position.set(worldPos.x, meshY, worldPos.z);
     this.scene.add(mesh);
 
     const obj: PlacedObject = {
       id: this.nextId++,
       type: item.type,
       vehicleId: item.vehicleId,
-      position: new THREE.Vector3(worldPos.x, item.defaultY, worldPos.z),
+      position: new THREE.Vector3(worldPos.x, actualY, worldPos.z),
       mesh,
       patrolIndex: item.type === 'air_enemy' ? 0 : undefined,
       moving: item.type === 'ground_enemy' ? false : undefined,
@@ -838,6 +859,13 @@ export class LevelEditor {
           this.selectedObject.position.z = worldPos.z;
           this.selectedObject.mesh.position.x = worldPos.x;
           this.selectedObject.mesh.position.z = worldPos.z;
+          
+          // Update Y for ground objects based on terrain
+          if (this.selectedObject.type === 'ground_enemy') {
+            const terrainY = getTerrainHeight(worldPos.x, worldPos.z);
+            this.selectedObject.position.y = terrainY;
+            this.selectedObject.mesh.position.y = terrainY + 20;
+          }
         }
       }
     });
@@ -1032,7 +1060,8 @@ export class LevelEditor {
       const cat = CATALOG.find(c => c.vehicleId === ae.vehicleId && c.type === 'air_enemy')
         ?? CATALOG.find(c => c.type === 'air_enemy')!;
       const mesh = this.createObjectMesh(cat);
-      mesh.position.set(ae.position.x, 50, ae.position.z);
+      // Air enemies: mesh Y = actual altitude for proper visualization
+      mesh.position.set(ae.position.x, ae.position.y, ae.position.z);
       this.scene.add(mesh);
       const obj: PlacedObject = {
         id: this.nextId++,
@@ -1051,13 +1080,15 @@ export class LevelEditor {
       const cat = CATALOG.find(c => c.vehicleId === ge.vehicleId && c.type === 'ground_enemy')
         ?? CATALOG.find(c => c.type === 'ground_enemy')!;
       const mesh = this.createObjectMesh(cat);
-      mesh.position.set(ge.position.x, 20, ge.position.z);
+      // Ground enemies: sample terrain height if Y is 0 (legacy levels), otherwise use stored Y
+      const terrainY = ge.position.y === 0 ? getTerrainHeight(ge.position.x, ge.position.z) : ge.position.y;
+      mesh.position.set(ge.position.x, terrainY + 20, ge.position.z);
       this.scene.add(mesh);
       const obj: PlacedObject = {
         id: this.nextId++,
         type: 'ground_enemy',
         vehicleId: ge.vehicleId,
-        position: new THREE.Vector3(ge.position.x, ge.position.y, ge.position.z),
+        position: new THREE.Vector3(ge.position.x, terrainY, ge.position.z),
         mesh,
         moving: ge.moving,
         patrolRadius: ge.patrolRadius,
