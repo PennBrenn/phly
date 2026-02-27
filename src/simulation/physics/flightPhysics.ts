@@ -15,80 +15,205 @@ import {
 import { getTerrainHeight } from '@/utils/terrain';
 import { spawnExplosion } from '@/simulation/combat/collisionSystem';
 
+// ═══════════════════════════════════════════════════════════════════════════════
 // ─── Aircraft parameters (F-5E Tiger II inspired) ────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
 const MASS = 7000;             // kg  empty+fuel
-const MAX_THRUST_N = 50000;    // N   (two J85 engines)
+const MAX_THRUST_SL = 50000;   // N   static sea-level thrust (two J85 engines)
 const WING_AREA = 17.3;        // m²
 const WING_SPAN = 8.1;         // m
 const ASPECT_RATIO = WING_SPAN * WING_SPAN / WING_AREA;
 const GRAVITY = 9.81;          // m/s²
 
-// Atmosphere (simplified — constant for now)
-const RHO = 1.0;              // kg/m³ sea-level-ish
+// Moment of inertia (kg·m²) — determines rotational resistance
+const Ixx = 5200;   // roll  (light fighter = easy to roll)
+const Iyy = 28000;  // pitch (longer fuselage = more pitch inertia)
+const Izz = 30000;  // yaw   (similar to pitch)
 
-// Lift polar
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── ISA Atmosphere Model ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+const RHO_SL = 1.225;         // kg/m³ sea-level density
+const T_SL = 288.15;          // K     sea-level temperature
+const P_SL = 101325;          // Pa    sea-level pressure
+const LAPSE_RATE = 0.0065;    // K/m   temperature lapse rate (troposphere)
+const R_AIR = 287.058;        // J/(kg·K)  specific gas constant
+const GAMMA = 1.4;            // ratio of specific heats
+
+interface AtmState { rho: number; T: number; P: number; a: number; }
+
+function getAtmosphere(altitude: number): AtmState {
+  const h = Math.max(altitude, 0);
+  if (h < 11000) {
+    // Troposphere
+    const T = T_SL - LAPSE_RATE * h;
+    const P = P_SL * Math.pow(T / T_SL, GRAVITY / (LAPSE_RATE * R_AIR));
+    const rho = P / (R_AIR * T);
+    const a = Math.sqrt(GAMMA * R_AIR * T);
+    return { rho, T, P, a };
+  }
+  // Stratosphere (isothermal above 11km)
+  const T11 = T_SL - LAPSE_RATE * 11000;
+  const P11 = P_SL * Math.pow(T11 / T_SL, GRAVITY / (LAPSE_RATE * R_AIR));
+  const P = P11 * Math.exp(-GRAVITY * (h - 11000) / (R_AIR * T11));
+  const rho = P / (R_AIR * T11);
+  const a = Math.sqrt(GAMMA * R_AIR * T11);
+  return { rho, T: T11, P, a };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Lift / Drag Polar ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Lift curve
 const CL_ZERO = 0.1;          // CL at zero AoA (slight camber)
 const CL_ALPHA = 4.8;         // dCL/dAlpha per radian (thin wing)
 const STALL_ALPHA = 0.26;     // ~15° critical AoA
 const CL_MAX = CL_ZERO + CL_ALPHA * STALL_ALPHA;
 
-// Drag polar  CD = CD0 + K * CL²
-const CD_ZERO = 0.020;        // clean config
+// Post-stall: Viterna flat-plate model blends CL toward CD_90*sin(2α)
+const CD_90 = 1.8;            // drag coeff at 90° AoA (flat plate)
+
+function liftCoefficient(alpha: number): number {
+  const absA = Math.abs(alpha);
+  const sign = alpha >= 0 ? 1 : -1;
+  if (absA <= STALL_ALPHA) {
+    // Linear pre-stall region
+    return CL_ZERO + CL_ALPHA * alpha;
+  }
+  // Post-stall: Viterna extrapolation
+  // CL transitions from peak toward flat-plate: CL = CD_90/2 * sin(2α)
+  const clPeak = CL_MAX;
+  const clFlatPlate = CD_90 * 0.5 * Math.sin(2 * absA);
+  // Blend from peak to flat-plate over ~15° beyond stall
+  const blendRange = 0.26; // radians
+  const excess = absA - STALL_ALPHA;
+  const t = clamp(excess / blendRange, 0, 1);
+  const smooth = t * t * (3 - 2 * t); // smoothstep
+  return sign * (clPeak * (1 - smooth) + clFlatPlate * smooth);
+}
+
+// Drag polar: CD = CD0 + induced + compressibility + post-stall
+const CD_ZERO = 0.020;        // clean parasitic drag
 const OSWALD = 0.78;
 const K_INDUCED = 1 / (Math.PI * OSWALD * ASPECT_RATIO);
-// Compressibility drag rise near Mach 1
 const MACH_CRIT = 0.85;       // drag divergence onset
-const SPEED_OF_SOUND = 340;   // m/s at sea level
+const MACH_DD = 0.05;         // width of transonic drag rise
 
-// Stall
-const STALL_SPEED = 55;       // m/s — below this, lift fades
+function dragCoefficient(CL: number, mach: number, alpha: number): number {
+  // Parasitic + induced
+  let CD = CD_ZERO + K_INDUCED * CL * CL;
+  // Compressibility drag rise (Prandtl-Glauert → wave drag)
+  if (mach > MACH_CRIT) {
+    const dm = (mach - MACH_CRIT) / MACH_DD;
+    CD += 0.12 * dm * dm;  // wave drag quadratic rise
+  }
+  // Post-stall form drag (flat plate component)
+  const absA = Math.abs(alpha);
+  if (absA > STALL_ALPHA) {
+    const excess = absA - STALL_ALPHA;
+    CD += CD_90 * Math.sin(absA) * clamp(excess / 0.3, 0, 1);
+  }
+  return CD;
+}
 
-// Control surface max deflection rates (rad/s at max q-bar authority)
-const PITCH_RATE_MAX = 2.6;
-const YAW_RATE_MAX = 0.75;
-const ROLL_RATE_MAX = 3.2;
-// Control surfaces produce torque proportional to dynamic pressure.
-// REF_Q is the dynamic pressure at which deflection rates are 100%.
-const REF_Q = 0.5 * RHO * 90 * 90;   // ~90 m/s reference
-// G-load limiting — structural limit dampens pitch authority
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Stability Derivatives ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Pitch
+const Cm_alpha = -0.8;   // static longitudinal stability (nose-down restoring)
+const Cm_q = -12.0;      // pitch damping (opposes pitch rate)
+const Cm_alphadot = -5.0; // AoA rate damping
+
+// Yaw
+const Cn_beta = 0.12;    // directional stability (weathervane effect)
+const Cn_r = -0.20;      // yaw damping (opposes yaw rate)
+const Cn_da = -0.04;     // adverse yaw from aileron deflection
+
+// Roll
+const Cl_beta = -0.08;   // dihedral effect (roll from sideslip)
+const Cl_p = -0.35;      // roll damping (opposes roll rate)
+const Cl_r = 0.06;       // roll from yaw rate (Dutch roll coupling)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Control Surface Parameters ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Max moments generated by control surfaces at reference q (N·m per unit deflection)
+const M_elevator = 120000;   // pitch moment from elevator
+const M_rudder = 45000;      // yaw moment from rudder
+const M_aileron = 80000;     // roll moment from ailerons
+
+// Control surface slew rate (max deflection change per second, -1..1 range)
+const CONTROL_SLEW_RATE = 3.0;   // units/sec (~30°/sec at ±10° max deflection)
+
+// Dynamic pressure reference for control authority
+const Q_REF = 0.5 * RHO_SL * 90 * 90;   // at ~90 m/s sea level
+
+// Control authority at high speed reversal point (above this, controls weaken)
+const Q_REVERSAL = 0.5 * RHO_SL * 340 * 340; // near Mach 1
+
+// G-load structural limit
 const G_LIMIT = 7.0;
 
-// How fast control surfaces physically move (smoothing toward input)
-// Lower = more fluid/gradual, higher = snappier
-const CONTROL_SMOOTHING = 5.0;
+// Mach tuck: pitch-down moment above critical Mach
+const MACH_TUCK_ONSET = 0.88;
+const MACH_TUCK_MOMENT = -40000;  // nose-down N·m
 
-// Secondary smoothing pass on angular rates to prevent jitter
-const RATE_SMOOTHING = 6.0;
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Engine / Thrust Model ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// Aerodynamic coupling: velocity bleeds toward nose direction
-// (sideslip damping / weathervane effect)
-const AERO_COUPLING = 2.5;
+const THROTTLE_RATE = 0.6;    // throttle spool rate per second
+const AB_THRUST_MUL = 1.55;
+const AB_FUEL_DRAIN = 0.08;
+const AB_FUEL_REGEN = 0.04;
+const AB_MIN_FUEL = 0.05;
 
-const THROTTLE_RATE = 0.6;     // throttle change per second (slower spool)
+// Thrust decreases with altitude (proportional to density ratio)
+// and with airspeed (ram drag effect for jets)
+function engineThrust(throttle: number, afterburner: boolean, speed: number, atm: AtmState): number {
+  const abMul = afterburner ? AB_THRUST_MUL : 1.0;
+  // Throttle curve: slightly non-linear (spool characteristic)
+  const throttleEff = 0.6 * throttle + 0.4 * throttle * throttle;
+  // Altitude effect: thrust proportional to density ratio
+  const densityRatio = atm.rho / RHO_SL;
+  // Ram drag effect: thrust drops ~15% at Mach 0.9 for a turbojet
+  const mach = speed / atm.a;
+  const ramFactor = 1.0 - 0.15 * clamp(mach / 0.9, 0, 1);
+  return MAX_THRUST_SL * abMul * throttleEff * densityRatio * ramFactor;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Other Constants ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
 const MAX_SPEED = 360;         // hard cap m/s (military power)
 const MAX_SPEED_AB = 420;      // hard cap m/s (afterburner)
-const GROUND_CLEARANCE = 3;    // meters above terrain for collision
-const CRASH_SPEED = 25;        // impact speed threshold (m/s) for crash
-const RESPAWN_DELAY = 3.5;     // seconds before respawn
+const GROUND_CLEARANCE = 3;
+const CRASH_SPEED = 25;
+const RESPAWN_DELAY = 3.5;
+const STALL_SPEED = 55;
 
-// Afterburner / WEP
-const AB_THRUST_MUL = 1.55;    // thrust multiplier when AB active
-const AB_FUEL_DRAIN = 0.08;    // fuel consumed per second (12.5s full burn)
-const AB_FUEL_REGEN = 0.04;    // fuel regen per second when off (~25s full recharge)
-const AB_MIN_FUEL = 0.05;      // minimum fuel to ignite AB
+// Angular momentum damping from aerodynamic surfaces (baseline)
+const AERO_DAMPING_SCALE = 1.0;
 
-// Turn-induced drag
-const TURN_DRAG_COEFF = 0.015; // extra CD per (rad/s)² of angular rate
+// Sideslip damping / weathervane (force that aligns velocity with nose)
+const SIDESLIP_FORCE_SCALE = 2.5;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Cross-axis inertia coupling scale
+const INERTIA_COUPLING_SCALE = 0.3;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
 function vec3Sub(a: Vec3, b: Vec3): Vec3 {
   return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
 }
 
-// Smoothed angular rates (persistent across frames)
-let smoothedPitchRate = 0;
-let smoothedYawRate = 0;
-let smoothedRollRate = 0;
+// Previous AoA for derivative computation
+let prevAoA = 0;
 
 export function updateFlightPhysics(state: GameState): void {
   const dt = state.time.delta;
@@ -101,7 +226,6 @@ export function updateFlightPhysics(state: GameState): void {
   if (player.isDead) {
     player.crashTimer += dt;
     if (player.crashTimer >= RESPAWN_DELAY) {
-      // Respawn
       player.isDead = false;
       player.crashTimer = 0;
       player.health = 100;
@@ -115,9 +239,12 @@ export function updateFlightPhysics(state: GameState): void {
       player.smoothPitch = 0;
       player.smoothYaw = 0;
       player.smoothRoll = 0;
-      smoothedPitchRate = 0;
-      smoothedYawRate = 0;
-      smoothedRollRate = 0;
+      player.controlDeflection = { x: 0, y: 0, z: 0 };
+      player.angularVelocity = { x: 0, y: 0, z: 0 };
+      player.angleOfAttack = 0;
+      player.sideslipAngle = 0;
+      player.machNumber = 0;
+      prevAoA = 0;
       // Reset weapon slots
       state.combat.weaponSlots = [
         { slot: 1, weaponId: 'cannon',    ammo: -1, cooldown: 0 },
@@ -128,24 +255,83 @@ export function updateFlightPhysics(state: GameState): void {
       state.combat.selectedSlot = 1;
       state.combat.playerMissileAmmo = 4;
       state.combat.playerDamageFlash = 0;
-      // Reset chaff
       state.combat.chaff.ammo = 12;
       state.combat.chaff.cooldown = 0;
       state.combat.chaff.activeTimer = 0;
-      // Reset seeker
       state.combat.seeker.active = false;
       state.combat.seeker.seekTimer = 0;
       state.combat.seeker.lockTimer = 0;
       state.combat.seeker.locked = false;
       state.combat.seeker.targetId = -1;
-      // Reset OOB
       state.combat.oob.isOOB = false;
       state.combat.oob.oobTimer = 0;
     }
     return;
   }
 
-  // ─── Throttle (gradual spool) ───────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 1. Atmosphere ─────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  const atm = getAtmosphere(player.position.y);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 2. Local Axes & Speed ─────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  const fwd   = quatRotateVec3(player.rotation, { x: 0, y: 0, z: -1 });
+  const upDir = quatRotateVec3(player.rotation, { x: 0, y: 1, z: 0 });
+  const right = quatRotateVec3(player.rotation, { x: 1, y: 0, z: 0 });
+
+  const speed = vec3Length(player.velocity);
+  player.speed = speed;
+  const qBar = 0.5 * atm.rho * speed * speed;  // dynamic pressure
+
+  const mach = speed / atm.a;
+  player.machNumber = mach;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 3. Angle of Attack & Sideslip ─────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  let alpha = 0;
+  let beta = 0;
+  if (speed > 2) {
+    const velNorm = vec3Normalize(player.velocity);
+    const vFwd  = vec3Dot(velNorm, fwd);
+    const vUp   = vec3Dot(velNorm, upDir);
+    const vSide = vec3Dot(velNorm, right);
+    alpha = Math.atan2(-vUp, Math.max(vFwd, 0.01));
+    beta  = Math.asin(clamp(vSide, -1, 1));
+  }
+  player.angleOfAttack = alpha;
+  player.sideslipAngle = beta;
+
+  // AoA rate (for Cm_alphadot derivative)
+  const alphaDot = (alpha - prevAoA) / Math.max(dt, 0.001);
+  prevAoA = alpha;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 4. Lift & Drag Forces ─────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  let CL = liftCoefficient(alpha);
+
+  // Low-speed stall factor
+  const stallRatio = clamp(speed / STALL_SPEED, 0, 1);
+  CL *= stallRatio * stallRatio;
+  const absAlpha = Math.abs(alpha);
+  player.isStalling = speed < STALL_SPEED * 1.1 || absAlpha > STALL_ALPHA;
+
+  const CD = dragCoefficient(CL, mach, alpha);
+
+  const liftN = CL * qBar * WING_AREA;
+  const dragN = CD * qBar * WING_AREA;
+
+  const liftForce = vec3Scale(upDir, liftN);
+  const dragForce = speed > 0.5
+    ? vec3Scale(vec3Normalize(player.velocity), -dragN)
+    : { x: 0, y: 0, z: 0 };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 5. Throttle & Afterburner ─────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
   if (input.throttleUp) {
     player.throttle = clamp(player.throttle + THROTTLE_RATE * dt, 0, 1);
   }
@@ -153,72 +339,6 @@ export function updateFlightPhysics(state: GameState): void {
     player.throttle = clamp(player.throttle - THROTTLE_RATE * dt, 0, 1);
   }
 
-  // ─── Local axes ─────────────────────────────────────────────────────────
-  const fwd   = quatRotateVec3(player.rotation, { x: 0, y: 0, z: -1 });
-  const upDir = quatRotateVec3(player.rotation, { x: 0, y: 1, z: 0 });
-  const right = quatRotateVec3(player.rotation, { x: 1, y: 0, z: 0 });
-
-  // ─── Speed & dynamic pressure ───────────────────────────────────────────
-  const speed = vec3Length(player.velocity);
-  player.speed = speed;
-  const qBar = 0.5 * RHO * speed * speed;  // dynamic pressure (Pa)
-
-  // ─── Angle of Attack ────────────────────────────────────────────────────
-  // Project velocity into the plane's pitch plane (fwd/up) to get signed AoA
-  let aoa = 0;
-  if (speed > 2) {
-    const velNorm = vec3Normalize(player.velocity);
-    // Component of velocity along forward and up
-    const vFwd = vec3Dot(velNorm, fwd);
-    const vUp  = vec3Dot(velNorm, upDir);
-    // AoA = angle from forward in the pitch plane, positive = nose above vel
-    aoa = Math.atan2(-vUp, vFwd);
-  }
-
-  // ─── Lift coefficient ───────────────────────────────────────────────────
-  let CL: number;
-  const absAoa = Math.abs(aoa);
-  if (absAoa <= STALL_ALPHA) {
-    // Linear region
-    CL = CL_ZERO + CL_ALPHA * aoa;
-  } else {
-    // Post-stall: CL drops off smoothly
-    const sign = aoa >= 0 ? 1 : -1;
-    const excess = absAoa - STALL_ALPHA;
-    const dropoff = 1 / (1 + 8 * excess * excess); // smooth falloff
-    CL = sign * CL_MAX * dropoff;
-  }
-
-  // Low-speed stall factor — lift fades as speed drops below stall speed
-  const stallRatio = clamp(speed / STALL_SPEED, 0, 1);
-  const stallFactor = stallRatio * stallRatio; // quadratic fade
-  CL *= stallFactor;
-  player.isStalling = speed < STALL_SPEED * 1.1 || absAoa > STALL_ALPHA;
-
-  // ─── Drag coefficient ───────────────────────────────────────────────────
-  let CD = CD_ZERO + K_INDUCED * CL * CL;
-  // Compressibility drag rise
-  const mach = speed / SPEED_OF_SOUND;
-  if (mach > MACH_CRIT) {
-    const dm = mach - MACH_CRIT;
-    CD += 0.2 * dm * dm;  // wave drag
-  }
-  // Turn-induced drag: tighter turns = more drag = speed bleeds
-  const angRate = Math.abs(smoothedPitchRate) + Math.abs(smoothedYawRate) + Math.abs(smoothedRollRate) * 0.3;
-  CD += TURN_DRAG_COEFF * angRate * angRate;
-
-  // ─── Aerodynamic forces (Newtons) ───────────────────────────────────────
-  const liftN = CL * qBar * WING_AREA;
-  const dragN = CD * qBar * WING_AREA;
-
-  // Lift along plane's up axis
-  const liftForce = vec3Scale(upDir, liftN);
-  // Drag opposite to velocity
-  const dragForce = speed > 0.5
-    ? vec3Scale(vec3Normalize(player.velocity), -dragN)
-    : { x: 0, y: 0, z: 0 };
-
-  // ─── Afterburner ──────────────────────────────────────────────────────
   if (input.afterburnerToggle && player.afterburnerFuel > AB_MIN_FUEL && player.throttle > 0.9) {
     player.afterburner = true;
     player.afterburnerFuel = Math.max(0, player.afterburnerFuel - AB_FUEL_DRAIN * dt);
@@ -228,128 +348,202 @@ export function updateFlightPhysics(state: GameState): void {
     player.afterburnerFuel = Math.min(1, player.afterburnerFuel + AB_FUEL_REGEN * dt);
   }
 
-  // ─── Thrust ─────────────────────────────────────────────────────────────
-  const abMul = player.afterburner ? AB_THRUST_MUL : 1.0;
-  const thrustN = MAX_THRUST_N * abMul * (0.6 * player.throttle + 0.4 * player.throttle * player.throttle);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 6. Thrust (varies with altitude & airspeed) ───────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  const thrustN = engineThrust(player.throttle, player.afterburner, speed, atm);
   const thrustForce = vec3Scale(fwd, thrustN);
 
-  // ─── Gravity ────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 7. Gravity ────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
   const weight = { x: 0, y: -MASS * GRAVITY, z: 0 };
 
-  // ─── Aerodynamic coupling (sideslip damping) ────────────────────────────
-  let couplingForce = { x: 0, y: 0, z: 0 };
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 8. Sideslip Damping Force ─────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  let sideForce: Vec3 = { x: 0, y: 0, z: 0 };
   if (speed > 5) {
-    const velNorm = vec3Normalize(player.velocity);
-    const diff = vec3Sub(fwd, velNorm);
-    // Scale with dynamic pressure — stronger coupling at higher speed
-    const strength = AERO_COUPLING * clamp(qBar / 4000, 0, 1);
-    couplingForce = vec3Scale(diff, strength * speed * MASS);
+    // Side force proportional to sideslip, scales with dynamic pressure
+    const sideN = -beta * qBar * WING_AREA * 0.8 * SIDESLIP_FORCE_SCALE;
+    sideForce = vec3Scale(right, sideN);
   }
 
-  // ─── Sum forces → F/m → integrate velocity ──────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 9. Sum Forces → Acceleration → Integrate Velocity ─────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
   let totalForce = vec3Add(thrustForce, liftForce);
   totalForce = vec3Add(totalForce, dragForce);
   totalForce = vec3Add(totalForce, weight);
-  totalForce = vec3Add(totalForce, couplingForce);
+  totalForce = vec3Add(totalForce, sideForce);
 
   const accel = vec3Scale(totalForce, 1 / MASS);
   player.velocity = vec3Add(player.velocity, vec3Scale(accel, dt));
 
-  // G-force (acceleration magnitude / g, projected onto plane's up axis)
-  const accelNoGrav = vec3Scale(totalForce, 1 / MASS);
-  player.gForce = 1 + vec3Dot(accelNoGrav, upDir) / GRAVITY;
+  // G-force (along plane's up axis)
+  player.gForce = 1 + vec3Dot(accel, upDir) / GRAVITY;
 
-  // Clamp max speed (higher cap with afterburner)
+  // Speed cap
   const speedCap = player.afterburner ? MAX_SPEED_AB : MAX_SPEED;
   const newSpeed = vec3Length(player.velocity);
   if (newSpeed > speedCap) {
     player.velocity = vec3Scale(vec3Normalize(player.velocity), speedCap);
   }
 
-  // ─── Control surfaces (gradual, speed-dependent) ────────────────────────
-  // Raw input targets (keyboard + mouse)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 10. Control Surface Rate Limiting ─────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
   let targetPitch = input.pitch;
   let targetYaw   = input.yaw;
   let targetRoll  = input.roll;
 
   if (input.useMouseAim) {
-    // Mouse and keyboard are fully independent: keyboard input is always applied,
-    // mouse adds on top. This means A/D roll still works even when mouse is off-center.
     targetPitch = clamp(input.pitch  - input.mouseY * 0.9,  -1, 1);
     targetRoll  = clamp(input.roll   + input.mouseX * 1.3,  -1, 1);
     targetYaw   = clamp(input.yaw    - input.mouseX * 0.6,  -1, 1);
   }
 
-  // Smooth control deflections (simulates hydraulic actuator lag)
-  const smoothAlpha = Math.min(CONTROL_SMOOTHING * dt, 1);
+  // Smooth command input (pilot stick smoothing)
+  const smoothAlpha = Math.min(5.0 * dt, 1);
   player.smoothPitch = lerp(player.smoothPitch, targetPitch, smoothAlpha);
   player.smoothYaw   = lerp(player.smoothYaw,   targetYaw,   smoothAlpha);
   player.smoothRoll  = lerp(player.smoothRoll,  targetRoll,  smoothAlpha);
 
-  // Authority from dynamic pressure: controls are aerodynamic surfaces,
-  // so their effectiveness scales with qBar.
-  // Floor of 0.12 so the plane is always somewhat controllable.
-  const qAuthority = clamp(qBar / REF_Q, 0.12, 1.8);
+  // Rate-limit actual control surface deflections (slew rate)
+  const maxSlew = CONTROL_SLEW_RATE * dt;
+  const cd = player.controlDeflection;
+  cd.x = clamp(player.smoothPitch, cd.x - maxSlew, cd.x + maxSlew); // elevator
+  cd.y = clamp(player.smoothYaw,   cd.y - maxSlew, cd.y + maxSlew); // rudder
+  cd.z = clamp(player.smoothRoll,  cd.z - maxSlew, cd.z + maxSlew); // aileron
 
-  // G-limit dampening: reduce pitch authority if we're near structural limit
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 11. Control Authority (dynamic pressure dependent) ────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Controls effective proportional to qBar, with floor and reversal at extreme speed
+  let qAuth = clamp(qBar / Q_REF, 0.08, 2.0);
+  // Aileron reversal at very high speed (flexible wing effect)
+  if (qBar > Q_REVERSAL) {
+    const overQ = (qBar - Q_REVERSAL) / Q_REVERSAL;
+    qAuth *= Math.max(0.1, 1 - overQ * 0.5);
+  }
+
+  // G-limit dampening on pitch
   const gRatio = Math.abs(player.gForce) / G_LIMIT;
   const gDampen = gRatio > 0.8 ? clamp(1 - (gRatio - 0.8) * 5, 0.1, 1) : 1;
 
-  const rawPitchRate = player.smoothPitch * PITCH_RATE_MAX * qAuthority * gDampen;
-  const rawYawRate   = player.smoothYaw   * YAW_RATE_MAX   * qAuthority;
-  const rawRollRate  = player.smoothRoll  * ROLL_RATE_MAX  * qAuthority;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 12. Compute Aerodynamic Moments (Torques) ─────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  const omega = player.angularVelocity; // body-frame angular velocity
+  const qNorm = qBar / Q_REF; // normalized dynamic pressure
 
-  // Second smoothing pass on angular rates — prevents jittery rotation
-  const rateAlpha = Math.min(RATE_SMOOTHING * dt, 1);
-  smoothedPitchRate = lerp(smoothedPitchRate, rawPitchRate, rateAlpha);
-  smoothedYawRate   = lerp(smoothedYawRate,   rawYawRate,   rateAlpha);
-  smoothedRollRate  = lerp(smoothedRollRate,  rawRollRate,  rateAlpha);
+  // --- Pitch moment (Nm) ---
+  let pitchMoment = 0;
+  // Control: elevator deflection
+  pitchMoment += cd.x * M_elevator * qAuth * gDampen;
+  // Static stability: restoring moment from AoA
+  pitchMoment += Cm_alpha * alpha * qBar * WING_AREA * 1.5; // reference length = MAC
+  // Pitch damping: opposes pitch rate
+  pitchMoment += Cm_q * omega.x * qNorm * WING_AREA * 40;
+  // AoA rate damping
+  pitchMoment += Cm_alphadot * alphaDot * qNorm * WING_AREA * 2.0;
+  // Mach tuck: pitch-down above critical Mach
+  if (mach > MACH_TUCK_ONSET) {
+    const tuckFactor = (mach - MACH_TUCK_ONSET) / 0.1;
+    pitchMoment += MACH_TUCK_MOMENT * clamp(tuckFactor, 0, 2);
+  }
+  // Stall auto-pitch: nose drops when deep stall
+  if (absAlpha > STALL_ALPHA * 1.15 && speed > 8) {
+    pitchMoment -= (absAlpha - STALL_ALPHA) * 30000;
+  }
 
-  const pitchQ = quatFromAxisAngle(right, smoothedPitchRate * dt);
-  const yawQ   = quatFromAxisAngle(upDir, smoothedYawRate   * dt);
-  const rollQ  = quatFromAxisAngle(fwd,   smoothedRollRate  * dt);
+  // --- Yaw moment (Nm) ---
+  let yawMoment = 0;
+  // Control: rudder deflection
+  yawMoment += cd.y * M_rudder * qAuth;
+  // Directional stability: weathervane from sideslip
+  yawMoment += Cn_beta * beta * qBar * WING_AREA * 3.0;
+  // Yaw damping
+  yawMoment += Cn_r * omega.y * qNorm * WING_AREA * 40;
+  // Adverse yaw from aileron
+  yawMoment += Cn_da * cd.z * qAuth * M_rudder * 0.5;
+
+  // --- Roll moment (Nm) ---
+  let rollMoment = 0;
+  // Control: aileron deflection
+  rollMoment += cd.z * M_aileron * qAuth;
+  // Dihedral effect: roll from sideslip
+  rollMoment += Cl_beta * beta * qBar * WING_AREA * 5.0;
+  // Roll damping
+  rollMoment += Cl_p * omega.z * qNorm * WING_AREA * 30;
+  // Roll from yaw rate (Dutch roll coupling)
+  rollMoment += Cl_r * omega.y * qNorm * WING_AREA * 20;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 13. Cross-Axis Inertia Coupling ───────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // At high roll rates, pitch/yaw become coupled through Euler equations:
+  // M_pitch += (Izz - Ixx) * ωyaw * ωroll
+  // M_yaw   += (Ixx - Iyy) * ωpitch * ωroll
+  pitchMoment += INERTIA_COUPLING_SCALE * (Izz - Ixx) * omega.y * omega.z;
+  yawMoment   += INERTIA_COUPLING_SCALE * (Ixx - Iyy) * omega.x * omega.z;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 14. Angular Acceleration & Integrate Angular Velocity ─────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // τ = I·α  →  α = τ/I
+  const angAccelPitch = pitchMoment / Iyy;
+  const angAccelYaw   = yawMoment   / Izz;
+  const angAccelRoll  = rollMoment  / Ixx;
+
+  // Integrate angular velocity (persistent — this is the key difference)
+  omega.x += angAccelPitch * dt;
+  omega.y += angAccelYaw   * dt;
+  omega.z += angAccelRoll  * dt;
+
+  // Clamp angular velocity to prevent runaway (structural limits)
+  omega.x = clamp(omega.x, -4.0, 4.0);   // max ~230°/s pitch
+  omega.y = clamp(omega.y, -2.0, 2.0);    // max ~115°/s yaw
+  omega.z = clamp(omega.z, -5.0, 5.0);    // max ~286°/s roll
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 15. Apply Rotation ────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  const pitchQ = quatFromAxisAngle(right, omega.x * dt);
+  const yawQ   = quatFromAxisAngle(upDir, omega.y * dt);
+  const rollQ  = quatFromAxisAngle(fwd,   omega.z * dt);
 
   let newRot = quatMultiply(rollQ, player.rotation);
   newRot = quatMultiply(pitchQ, newRot);
   newRot = quatMultiply(yawQ,   newRot);
-
-  // Stall auto-pitch: nose drops naturally when AoA exceeds stall
-  if (absAoa > STALL_ALPHA * 1.15 && speed > 8) {
-    const stallTorque = (absAoa - STALL_ALPHA) * 0.7;
-    const stallPitchQ = quatFromAxisAngle(right, -stallTorque * dt);
-    newRot = quatMultiply(stallPitchQ, newRot);
-  }
-
   player.rotation = quatNormalize(newRot);
 
-  // NaN guard — if rotation becomes degenerate, reset to identity
+  // NaN guard
   if (isNaN(player.rotation.x) || isNaN(player.rotation.w)) {
     player.rotation = { x: 0, y: 0, z: 0, w: 1 };
     player.velocity = { x: 0, y: 0, z: -90 };
-    smoothedPitchRate = 0;
-    smoothedYawRate = 0;
-    smoothedRollRate = 0;
+    player.angularVelocity = { x: 0, y: 0, z: 0 };
+    prevAoA = 0;
   }
 
-  // ─── Integrate position ─────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 16. Integrate Position ────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
   player.position = vec3Add(player.position, vec3Scale(player.velocity, dt));
 
-  // Ground collision — sample terrain heightmap, enforce sea level as minimum
+  // Ground collision
   const terrainH = getTerrainHeight(player.position.x, player.position.z);
   const groundH = Math.max(terrainH, 0) + GROUND_CLEARANCE;
   if (player.position.y < groundH) {
-    // Check if impact is hard enough to crash
     const impactSpeed = Math.abs(player.velocity.y);
     const totalSpeed = vec3Length(player.velocity);
     if (impactSpeed > CRASH_SPEED || totalSpeed > CRASH_SPEED * 2) {
-      // CRASH!
       player.isDead = true;
       player.crashTimer = 0;
       player.health = 0;
       player.velocity = { x: 0, y: 0, z: 0 };
       player.position.y = groundH;
       state.combat.playerDamageFlash = 1.0;
-      // Spawn explosion at crash site
       spawnExplosion(
         state.combat.explosions,
         player.position.x,
@@ -358,15 +552,16 @@ export function updateFlightPhysics(state: GameState): void {
       );
       return;
     }
-    // Soft landing — just clamp
+    // Soft landing
     player.position.y = groundH;
     if (player.velocity.y < 0) player.velocity.y = 0;
-    // Ground friction
     player.velocity.x = lerp(player.velocity.x, 0, dt * 2);
     player.velocity.z = lerp(player.velocity.z, 0, dt * 2);
+    // Kill angular momentum on ground
+    player.angularVelocity = { x: 0, y: 0, z: 0 };
   }
 
-  // Also crash if health reaches 0 (shot down)
+  // Shot down
   if (player.health <= 0) {
     player.isDead = true;
     player.crashTimer = 0;

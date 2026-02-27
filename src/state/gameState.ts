@@ -26,6 +26,14 @@ export interface PlayerState {
   smoothPitch: number;
   smoothYaw: number;
   smoothRoll: number;
+  // Rate-limited actual control surface deflections (-1..1)
+  controlDeflection: Vec3;   // x=elevator, y=rudder, z=aileron
+  // Persistent angular velocity in body frame (rad/s)
+  angularVelocity: Vec3;     // x=pitch, y=yaw, z=roll
+  // Aerodynamic angles
+  angleOfAttack: number;     // radians
+  sideslipAngle: number;     // radians (beta)
+  machNumber: number;
   gForce: number;
   isDead: boolean;
   crashTimer: number;
@@ -100,6 +108,11 @@ export function createGameState(): GameState {
       smoothPitch: 0,
       smoothYaw: 0,
       smoothRoll: 0,
+      controlDeflection: { x: 0, y: 0, z: 0 },
+      angularVelocity: { x: 0, y: 0, z: 0 },
+      angleOfAttack: 0,
+      sideslipAngle: 0,
+      machNumber: 0,
       gForce: 1,
       isDead: false,
       crashTimer: 0,
