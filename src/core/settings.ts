@@ -9,6 +9,10 @@ export interface Settings {
   quality: QualityPreset;
   shadows: boolean;
   bloom: boolean;
+  godRays: boolean;
+  chromaticAberration: boolean;
+  vignette: boolean;
+  fxaa: boolean;
   fogDensity: number;
   treeDensity: number;
   showFPS: boolean;
@@ -35,16 +39,28 @@ const PRESETS: Record<QualityPreset, Partial<Settings>> = {
   low: {
     shadows: false,
     bloom: false,
+    godRays: false,
+    chromaticAberration: false,
+    vignette: true,
+    fxaa: false,
     fogDensity: 0.00008,
   },
   medium: {
     shadows: true,
     bloom: false,
+    godRays: true,
+    chromaticAberration: false,
+    vignette: true,
+    fxaa: true,
     fogDensity: 0.00005,
   },
   high: {
     shadows: true,
     bloom: true,
+    godRays: true,
+    chromaticAberration: true,
+    vignette: true,
+    fxaa: true,
     fogDensity: 0.000025,
   },
 };
@@ -54,6 +70,10 @@ function defaultSettings(): Settings {
     quality: 'high',
     shadows: true,
     bloom: true,
+    godRays: true,
+    chromaticAberration: true,
+    vignette: true,
+    fxaa: true,
     fogDensity: 0.000025,
     treeDensity: 0.7,
     showFPS: false,

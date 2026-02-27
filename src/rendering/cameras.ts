@@ -89,6 +89,14 @@ export class CameraController {
     this.smoothPos.lerp(planePos, posAlpha);
     this.smoothQuat.slerp(planeQuat, rotAlpha);
 
+    // NaN guard — snap back if quaternion/position becomes degenerate (extreme G-forces)
+    if (isNaN(this.smoothQuat.x) || isNaN(this.smoothPos.x)) {
+      this.smoothPos.copy(planePos);
+      this.smoothQuat.copy(planeQuat);
+    }
+    // Renormalize quaternion to prevent drift
+    this.smoothQuat.normalize();
+
     // Compute camera position: behind + above in the smoothed orientation frame
     const offset = new THREE.Vector3(0, CHASE_UP, CHASE_BACK);
     offset.applyQuaternion(this.smoothQuat);

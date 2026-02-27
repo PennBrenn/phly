@@ -322,6 +322,15 @@ export function updateFlightPhysics(state: GameState): void {
 
   player.rotation = quatNormalize(newRot);
 
+  // NaN guard — if rotation becomes degenerate, reset to identity
+  if (isNaN(player.rotation.x) || isNaN(player.rotation.w)) {
+    player.rotation = { x: 0, y: 0, z: 0, w: 1 };
+    player.velocity = { x: 0, y: 0, z: -90 };
+    smoothedPitchRate = 0;
+    smoothedYawRate = 0;
+    smoothedRollRate = 0;
+  }
+
   // ─── Integrate position ─────────────────────────────────────────────────
   player.position = vec3Add(player.position, vec3Scale(player.velocity, dt));
 

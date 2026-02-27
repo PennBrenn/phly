@@ -27,7 +27,7 @@ export class PauseMenu {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          z-index: 910;
+          z-index: 920;
           font-family: 'Courier New', monospace;
           color: #fff;
         }

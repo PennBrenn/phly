@@ -27,7 +27,7 @@ export class LevelSelectUI {
     s.id = 'lvlsel-styles';
     s.textContent = `
       #level-select-ui{position:fixed;inset:0;background:rgba(5,5,15,0.95);backdrop-filter:blur(6px);
-        color:#fff;font-family:'Courier New',monospace;z-index:850;display:none;
+        color:#fff;font-family:'Courier New',monospace;z-index:900;display:none;
         flex-direction:column;align-items:center;justify-content:center;padding:30px;}
       #level-select-ui.open{display:flex;}
       .ls-title{font-size:24px;font-weight:bold;letter-spacing:4px;margin-bottom:30px;}

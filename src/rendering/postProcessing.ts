@@ -64,6 +64,7 @@ export class PostProcessing {
   private vignettePass: ShaderPass;
   private godRayPass: ShaderPass;
   private bloomEnabled = true;
+  private godRaysEnabled = true;
   private camera: THREE.Camera;
 
   constructor(
@@ -135,15 +136,32 @@ export class PostProcessing {
     return this.bloomEnabled;
   }
 
+  setGodRaysEnabled(enabled: boolean): void {
+    this.godRaysEnabled = enabled;
+    if (!enabled) this.godRayPass.enabled = false;
+  }
+
+  setChromaticAberrationEnabled(enabled: boolean): void {
+    this.rgbShiftPass.enabled = enabled;
+  }
+
+  setVignetteEnabled(enabled: boolean): void {
+    this.vignettePass.enabled = enabled;
+  }
+
+  setFXAAEnabled(enabled: boolean): void {
+    this.fxaaPass.enabled = enabled;
+  }
+
   /** Update sun screen position for god rays. Call each frame with the sun's world position. */
   updateSunPosition(sunWorldPos: THREE.Vector3): void {
     const v = sunWorldPos.clone().project(this.camera);
     // Convert from NDC (-1..1) to UV (0..1)
     const sx = v.x * 0.5 + 0.5;
     const sy = v.y * 0.5 + 0.5;
-    // Only enable god rays when sun is roughly on screen
+    // Only enable god rays when sun is roughly on screen AND setting is on
     const onScreen = v.z < 1 && sx > -0.3 && sx < 1.3 && sy > -0.3 && sy < 1.3;
-    this.godRayPass.enabled = onScreen;
+    this.godRayPass.enabled = this.godRaysEnabled && onScreen;
     if (onScreen) {
       this.godRayPass.uniforms.uSunScreenPos.value.set(sx, sy);
     }

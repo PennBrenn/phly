@@ -51,12 +51,30 @@ function seededRng(seed: number): () => number {
   };
 }
 
+function makeRock(): THREE.Mesh {
+  const geo = new THREE.DodecahedronGeometry(1, 0);
+  const mat = new THREE.MeshLambertMaterial({ color: 0x6a6a60 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  return mesh;
+}
+
+function makeBush(): THREE.Mesh {
+  const geo = new THREE.IcosahedronGeometry(1.2, 0);
+  const mat = new THREE.MeshLambertMaterial({ color: 0x3a6a28 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  return mesh;
+}
+
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 export function createTerrainProps(scene: THREE.Scene, treeDensity = 0.7): void {
   const rng = seededRng(42);
 
   const TREE_COUNT = Math.floor(2500 * treeDensity);
+  const ROCK_COUNT = Math.floor(400 * treeDensity);
+  const BUSH_COUNT = Math.floor(600 * treeDensity);
   const SPREAD     = 8000;
 
   // ── Trees ──────────────────────────────────────────────────────────────────
@@ -88,4 +106,38 @@ export function createTerrainProps(scene: THREE.Scene, treeDensity = 0.7): void 
     scene.add(tree);
   }
 
+  // ── Rocks ─────────────────────────────────────────────────────────────────
+  for (let i = 0; i < ROCK_COUNT; i++) {
+    const wx = (rng() - 0.5) * SPREAD * 2;
+    const wz = (rng() - 0.5) * SPREAD * 2;
+    const h = getTerrainHeight(wx, wz);
+    if (h < 5 || isWaterWorld(wx, wz)) continue;
+
+    const rock = makeRock();
+    const scale = 0.8 + rng() * 3.0;
+    rock.scale.set(scale, scale * (0.4 + rng() * 0.6), scale);
+    rock.position.set(wx, h - 0.3, wz);
+    rock.rotation.set(rng() * 0.3, rng() * Math.PI * 2, rng() * 0.3);
+    scene.add(rock);
+  }
+
+  // ── Bushes ────────────────────────────────────────────────────────────────
+  for (let i = 0; i < BUSH_COUNT; i++) {
+    const wx = (rng() - 0.5) * SPREAD * 2;
+    const wz = (rng() - 0.5) * SPREAD * 2;
+
+    if (isWaterWorld(wx, wz)) continue;
+    const h = getTerrainHeight(wx, wz);
+    if (h < 10 || h > 800) continue;
+
+    const fd = getForestDensity(wx, wz);
+    if (fd < 0.3) continue; // bushes grow near forest edges
+
+    const bush = makeBush();
+    const scale = 0.5 + rng() * 1.2;
+    bush.scale.setScalar(scale);
+    bush.position.set(wx, h, wz);
+    bush.rotation.y = rng() * Math.PI * 2;
+    scene.add(bush);
+  }
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   TERRAIN_SIZE, TERRAIN_SEGMENTS,
-  sampleHeightRaw, isRiverRaw, sampleForestRaw, sampleFieldVarRaw,
+  sampleHeightRaw, isRiverRaw, sampleForestRaw, sampleFieldVarRaw, sampleMicroRaw,
 } from '@/utils/terrain';
 
 // ─── Biome palette ───────────────────────────────────────────────────────────
@@ -125,6 +125,16 @@ export function createTerrain(scene: THREE.Scene): THREE.Mesh {
     if (river && h < 20 && h >= -20) {
       const waterBlend = clamp01(1 - h / 20);
       tmp.lerp(C_SHALLOW, waterBlend * 0.8);
+    }
+
+    // Micro-detail color variation: subtle brightness/hue shift per vertex
+    // Only on land (above water), very gentle so it doesn't look noisy from altitude
+    if (h > 5) {
+      const mv = sampleMicroRaw(px, py);
+      const shift = (mv - 0.5) * 0.06; // ±3% brightness variation
+      tmp.r = clamp01(tmp.r + shift);
+      tmp.g = clamp01(tmp.g + shift * 0.8);
+      tmp.b = clamp01(tmp.b + shift * 0.5);
     }
 
     colors[i * 3]     = tmp.r;

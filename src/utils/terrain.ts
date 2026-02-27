@@ -6,7 +6,7 @@ export const TERRAIN_SEGMENTS = 512;
 export const HEIGHT_SCALE = 2000;
 
 // ─── Seed-based PRNG (deterministic terrain across reloads) ──────────────────
-export const TERRAIN_SEED = 7742;
+export let TERRAIN_SEED = 7742;
 
 function seededRng(seed: number): () => number {
   let s = seed;
@@ -16,12 +16,25 @@ function seededRng(seed: number): () => number {
   };
 }
 
-const rng = seededRng(TERRAIN_SEED);
-const continentNoise = createNoise2D(rng);
-const detailNoise    = createNoise2D(rng);
-const biomeNoise     = createNoise2D(rng);
-const riverNoise     = createNoise2D(rng);
-const islandNoise    = createNoise2D(rng);
+let rng = seededRng(TERRAIN_SEED);
+let continentNoise = createNoise2D(rng);
+let detailNoise    = createNoise2D(rng);
+let biomeNoise     = createNoise2D(rng);
+let riverNoise     = createNoise2D(rng);
+let islandNoise    = createNoise2D(rng);
+let microNoise     = createNoise2D(rng);
+
+/** Reinitialize all noise functions with a new seed. Call before scene creation. */
+export function setTerrainSeed(seed: number): void {
+  TERRAIN_SEED = seed;
+  rng = seededRng(seed);
+  continentNoise = createNoise2D(rng);
+  detailNoise    = createNoise2D(rng);
+  biomeNoise     = createNoise2D(rng);
+  riverNoise     = createNoise2D(rng);
+  islandNoise    = createNoise2D(rng);
+  microNoise     = createNoise2D(rng);
+}
 
 // ─── Plane-space sampling (used by terrain mesh builder) ─────────────────────
 // PlaneGeometry is in XY space, rotated -90° around X.
@@ -98,6 +111,11 @@ export function sampleForestRaw(px: number, py: number): number {
 /** Field variety in plane-space (0..1) — wheat vs green */
 export function sampleFieldVarRaw(px: number, py: number): number {
   return (biomeNoise(px * 0.0006, py * 0.0006) + 1) * 0.5;
+}
+
+/** Micro-detail noise for color variation (0..1). Adds subtle per-vertex variation. */
+export function sampleMicroRaw(px: number, py: number): number {
+  return (microNoise(px * 0.002, py * 0.002) + 1) * 0.5;
 }
 
 // ─── World-space sampling (used by props, physics, etc.) ─────────────────────

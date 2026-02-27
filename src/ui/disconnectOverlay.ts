@@ -19,7 +19,7 @@ export class DisconnectOverlay {
     s.id = 'dc-styles';
     s.textContent = `
 #dc-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);
-  color:#fff;font-family:'Courier New',monospace;z-index:920;display:none;
+  color:#fff;font-family:'Courier New',monospace;z-index:950;display:none;
   flex-direction:column;align-items:center;justify-content:center;}
 #dc-overlay.open{display:flex;}
 .dc-title{font-size:24px;font-weight:bold;letter-spacing:4px;margin-bottom:8px;color:#ff8844;}

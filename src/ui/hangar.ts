@@ -243,7 +243,7 @@ export class HangarUI {
     const s = document.createElement('style');
     s.id = 'hangar-styles';
     s.textContent = `
-#hangar-ui{position:fixed;inset:0;background:#08081a;color:#fff;font-family:'Courier New',monospace;z-index:850;display:none;}
+#hangar-ui{position:fixed;inset:0;background:#08081a;color:#fff;font-family:'Courier New',monospace;z-index:900;display:none;}
 #hangar-ui.open{display:flex;flex-direction:row;}
 
 /* Left: 3D preview */
@@ -535,6 +535,11 @@ export class HangarUI {
       const wd = this.weaponDataCache.get(w.weaponId);
       return wd?.type === 'missile';
     });
+    const guns = this._upgrades.weapons.filter(w => {
+      if (!w.unlocked) return false;
+      const wd = this.weaponDataCache.get(w.weaponId);
+      return wd?.type === 'gun';
+    });
 
     let html = '<div class="lo-section"><div class="lo-title">Loadout</div>';
     for (const ws of loadout.weaponSlots) {
@@ -543,8 +548,16 @@ export class HangarUI {
       const wd = this.weaponDataCache.get(ws.weaponId);
       const label = isGun ? 'GUN' : isCM ? 'CM' : `MSL${ws.slot - 1}`;
 
-      if (isGun || isCM) {
+      if (isCM) {
         html += `<div class="lo-row"><span class="lo-lbl">${label}</span><span class="lo-fixed">${wd?.name ?? ws.weaponId}</span></div>`;
+      } else if (isGun) {
+        html += `<div class="lo-row"><span class="lo-lbl">${label}</span>
+          <select class="lo-sel" data-slot="${ws.slot}">
+            ${guns.map(g => {
+              const gd = this.weaponDataCache.get(g.weaponId);
+              return `<option value="${g.weaponId}" ${g.weaponId === ws.weaponId ? 'selected' : ''}>${gd?.name ?? g.weaponId}</option>`;
+            }).join('')}
+          </select></div>`;
       } else {
         html += `<div class="lo-row"><span class="lo-lbl">${label}</span>
           <select class="lo-sel" data-slot="${ws.slot}">

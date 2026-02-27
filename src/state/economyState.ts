@@ -63,32 +63,40 @@ export function calculateReward(
   let score = baseScore;
 
   // Kill bonuses
-  const airBonus = airKills * 100;
+  const airBonus = airKills * 120;
   if (airBonus > 0) bonuses.push({ reason: `${airKills} air kills`, amount: airBonus });
   credits += airBonus;
-  score += airKills * 200;
+  score += airKills * 250;
 
-  const gndBonus = groundKills * 75;
+  const gndBonus = groundKills * 90;
   if (gndBonus > 0) bonuses.push({ reason: `${groundKills} ground kills`, amount: gndBonus });
   credits += gndBonus;
-  score += groundKills * 150;
+  score += groundKills * 180;
 
-  // Speed bonus
+  // Speed bonus (complete in under half the time)
   if (timeSeconds < timeLimitSeconds * 0.5) {
-    const speedBonus = Math.round(baseCredits * 0.5);
+    const speedBonus = Math.round(baseCredits * 0.6);
     bonuses.push({ reason: 'Speed bonus', amount: speedBonus });
     credits += speedBonus;
   }
 
   // No-damage bonus
   if (damageTaken === 0) {
-    const nodmg = Math.round(baseCredits * 0.3);
+    const nodmg = Math.round(baseCredits * 0.4);
     bonuses.push({ reason: 'No damage taken', amount: nodmg });
     credits += nodmg;
   }
 
+  // Low-damage bonus (took less than 25% damage)
+  if (damageTaken > 0 && damageTaken < maxHealth * 0.25) {
+    const lowDmg = Math.round(baseCredits * 0.2);
+    bonuses.push({ reason: 'Minimal damage', amount: lowDmg });
+    credits += lowDmg;
+  }
+
   const grade = calculateGrade(timeSeconds, timeLimitSeconds, damageTaken, maxHealth);
 
+  console.debug('[Debug][Economy] Reward:', { credits, score, grade, bonuses: bonuses.map(b => `${b.reason}: ${b.amount}`) });
   return { credits, score, grade, bonuses };
 }
 

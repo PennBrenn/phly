@@ -46,20 +46,27 @@ const ALL_PLANES: PlaneUnlock[] = [
 
 // All weapons (missiles) ordered by price
 const ALL_WEAPONS: WeaponUnlock[] = [
-  { weaponId: 'cannon',    unlocked: true, purchasePrice: 0 },
-  { weaponId: 'chaff',     unlocked: true, purchasePrice: 0 },
-  { weaponId: 'mini',      unlocked: true, purchasePrice: 0 },
-  { weaponId: 'macro',     unlocked: false, purchasePrice: 500 },
-  { weaponId: 'sidewinder',unlocked: false, purchasePrice: 800 },
-  { weaponId: 'meteor',    unlocked: false, purchasePrice: 1000 },
-  { weaponId: 'dart',      unlocked: false, purchasePrice: 1200 },
-  { weaponId: 'duplex',    unlocked: false, purchasePrice: 1500 },
-  { weaponId: 'flash',     unlocked: false, purchasePrice: 2500 },
-  { weaponId: 'sprint',    unlocked: false, purchasePrice: 4000 },
-  { weaponId: 'zip',       unlocked: false, purchasePrice: 6000 },
-  { weaponId: 'birdshot',  unlocked: false, purchasePrice: 8000 },
-  { weaponId: 'destroyer', unlocked: false, purchasePrice: 12000 },
-  { weaponId: 'cruise',    unlocked: false, purchasePrice: 25000 },
+  // Guns (slot 1 alternatives)
+  { weaponId: 'cannon',     unlocked: true,  purchasePrice: 0 },
+  { weaponId: 'shotgun',    unlocked: false, purchasePrice: 1500 },
+  { weaponId: 'gatling',    unlocked: false, purchasePrice: 2000 },
+  { weaponId: 'autocannon', unlocked: false, purchasePrice: 3500 },
+  { weaponId: 'laser',      unlocked: false, purchasePrice: 8000 },
+  // Countermeasures
+  { weaponId: 'chaff',      unlocked: true,  purchasePrice: 0 },
+  // Missiles (ordered by price)
+  { weaponId: 'mini',       unlocked: true,  purchasePrice: 0 },
+  { weaponId: 'macro',      unlocked: false, purchasePrice: 500 },
+  { weaponId: 'sidewinder', unlocked: false, purchasePrice: 800 },
+  { weaponId: 'meteor',     unlocked: false, purchasePrice: 1000 },
+  { weaponId: 'dart',       unlocked: false, purchasePrice: 1200 },
+  { weaponId: 'duplex',     unlocked: false, purchasePrice: 1500 },
+  { weaponId: 'flash',      unlocked: false, purchasePrice: 2500 },
+  { weaponId: 'sprint',     unlocked: false, purchasePrice: 4000 },
+  { weaponId: 'zip',        unlocked: false, purchasePrice: 6000 },
+  { weaponId: 'birdshot',   unlocked: false, purchasePrice: 8000 },
+  { weaponId: 'destroyer',  unlocked: false, purchasePrice: 12000 },
+  { weaponId: 'cruise',     unlocked: false, purchasePrice: 25000 },
 ];
 
 export function createUpgradeState(): UpgradeState {

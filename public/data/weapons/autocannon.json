@@ -1,0 +1,14 @@
+{
+  "id": "autocannon",
+  "name": "30mm Autocannon",
+  "type": "gun",
+  "bulletSpeed": 900,
+  "bulletMaxAge": 2.5,
+  "fireRate": 6,
+  "damage": 18,
+  "spread": 0.003,
+  "ammo": -1,
+  "poolSize": 20,
+  "price": 3500,
+  "model": null
+}

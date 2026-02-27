@@ -18,8 +18,13 @@ export interface LevelManifest {
 export async function loadLevelManifest(): Promise<LevelManifest[]> {
   try {
     const resp = await fetch('/data/levels/manifest.json');
-    if (resp.ok) return await resp.json();
+    if (resp.ok) {
+      const levels = await resp.json();
+      console.debug('[Debug][LevelLoader] Loaded manifest:', levels.length, 'levels');
+      return levels;
+    }
   } catch { /* fallback */ }
+  console.debug('[Debug][LevelLoader] Using fallback manifest');
   return [
     { id: 'mission1', name: 'Valley Patrol', description: 'Default mission.', missionFile: '/missions/mission1.json', unlocked: true, order: 0 },
   ];
@@ -31,6 +36,7 @@ export function applyMissionToState(
   mission: MissionData,
   difficulty: string,
 ): void {
+  console.debug('[Debug][LevelLoader] Applying mission:', mission.id, 'difficulty:', difficulty);
   // Apply bounds
   state.bounds = { ...mission.bounds };
 

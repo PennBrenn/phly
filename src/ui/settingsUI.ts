@@ -149,6 +149,22 @@ export class SettingsUI {
             <div class="settings-toggle" data-setting="bloom"></div>
           </div>
           <div class="settings-row">
+            <label>God Rays</label>
+            <div class="settings-toggle" data-setting="godRays"></div>
+          </div>
+          <div class="settings-row">
+            <label>Chromatic Aberration</label>
+            <div class="settings-toggle" data-setting="chromaticAberration"></div>
+          </div>
+          <div class="settings-row">
+            <label>Vignette</label>
+            <div class="settings-toggle" data-setting="vignette"></div>
+          </div>
+          <div class="settings-row">
+            <label>FXAA</label>
+            <div class="settings-toggle" data-setting="fxaa"></div>
+          </div>
+          <div class="settings-row">
             <label>Fog Density</label>
             <input type="range" class="settings-slider" data-setting="fogDensity"
               min="0.000005" max="0.00015" step="0.000005">
@@ -156,9 +172,10 @@ export class SettingsUI {
           <div class="settings-row">
             <label>Tree Density</label>
             <input type="range" class="settings-slider" data-setting="treeDensity"
-              min="0" max="1" step="0.05">
+              min="0" max="2" step="0.05">
+            <span class="debug-val" data-val="treeDensity">0.70</span>
           </div>
-          <div class="settings-hint">Tree density applies on reload</div>
+          <div class="settings-hint">Tree density applies on reload (max 2x = ~5000 trees)</div>
           <div class="settings-row">
             <label>Show FPS</label>
             <div class="settings-toggle" data-setting="showFPS"></div>
@@ -203,11 +220,28 @@ export class SettingsUI {
         </div>
 
         <div class="settings-section">
+          <div class="settings-section-title">Data Management</div>
+          <div class="settings-row">
+            <button class="settings-btn" id="settings-export-data" style="flex:1">Export Save Data</button>
+          </div>
+          <div class="settings-row">
+            <button class="settings-btn" id="settings-import-data" style="flex:1">Import Save Data</button>
+            <input type="file" id="settings-import-file" accept=".phly" style="display:none">
+          </div>
+          <div class="settings-hint">Export creates an encrypted .phly file. Import will overwrite all current data.</div>
+          <div class="settings-row">
+            <button class="settings-btn" id="settings-reset-all" style="flex:1;border-color:rgba(255,80,80,0.4);color:rgba(255,120,120,0.9)">Reset All Data</button>
+          </div>
+          <div class="settings-hint">Permanently deletes all progress, credits, and settings.</div>
+        </div>
+
+        <div class="settings-section">
           <div class="settings-section-title">Debug</div>
           <div class="settings-row">
             <label>Debug Mode</label>
-            <div class="settings-toggle" data-setting="debugMode"></div>
+            <div class="settings-toggle" data-setting="debugMode" id="debug-mode-toggle"></div>
           </div>
+          <div class="settings-hint" id="debug-hint" style="display:none;color:#ff8866">Warning: Disabling debug mode will clear all save data!</div>
           <div class="debug-sliders" id="debug-sliders" style="display:none">
             <div class="settings-section-title">Cheats</div>
             <div class="settings-row">
@@ -282,7 +316,109 @@ export class SettingsUI {
     });
 
     this.bindEvents();
+    this.bindDataManagement();
+    this.bindDebugModeToggle();
     this.syncUI();
+  }
+
+  private bindDataManagement(): void {
+    // Export
+    this.container.querySelector('#settings-export-data')?.addEventListener('click', () => {
+      const data: Record<string, string | null> = {};
+      const keys = ['phly-settings', 'phly-economy', 'phly-upgrades', 'phly-progress', 'phly-username'];
+      for (const k of keys) data[k] = localStorage.getItem(k);
+      const json = JSON.stringify(data);
+      // Simple XOR-based obfuscation (not crypto-strength, but prevents casual editing)
+      const key = 'PHLY2026';
+      let encoded = '';
+      for (let i = 0; i < json.length; i++) {
+        encoded += String.fromCharCode(json.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+      }
+      const blob = new Blob([btoa(encoded)], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `phly-save-${Date.now()}.phly`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Import
+    const fileInput = this.container.querySelector('#settings-import-file') as HTMLInputElement;
+    this.container.querySelector('#settings-import-data')?.addEventListener('click', () => {
+      fileInput?.click();
+    });
+    fileInput?.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      if (!confirm('This will OVERWRITE all your current save data. Continue?')) {
+        fileInput.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const raw = atob(reader.result as string);
+          const key = 'PHLY2026';
+          let decoded = '';
+          for (let i = 0; i < raw.length; i++) {
+            decoded += String.fromCharCode(raw.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+          }
+          const data = JSON.parse(decoded) as Record<string, string | null>;
+          for (const [k, v] of Object.entries(data)) {
+            if (v !== null) localStorage.setItem(k, v);
+            else localStorage.removeItem(k);
+          }
+          alert('Save data imported! The page will now reload.');
+          window.location.reload();
+        } catch {
+          alert('Failed to import save data. The file may be corrupted.');
+        }
+        fileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+
+    // Reset all
+    this.container.querySelector('#settings-reset-all')?.addEventListener('click', () => {
+      if (!confirm('This will permanently DELETE all progress, credits, unlocks, and settings. Are you sure?')) return;
+      if (!confirm('Are you really sure? This cannot be undone!')) return;
+      localStorage.removeItem('phly-settings');
+      localStorage.removeItem('phly-economy');
+      localStorage.removeItem('phly-upgrades');
+      localStorage.removeItem('phly-progress');
+      localStorage.removeItem('phly-username');
+      window.location.reload();
+    });
+  }
+
+  private bindDebugModeToggle(): void {
+    const toggle = this.container.querySelector('#debug-mode-toggle');
+    const hint = this.container.querySelector('#debug-hint') as HTMLElement;
+    if (!toggle || !hint) return;
+
+    // Override the generic toggle handler for debugMode specifically
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation(); // prevent the generic toggle handler
+      if (this.settings.debugMode) {
+        // Turning OFF debug mode — warn and clear data
+        if (!confirm('Disabling debug mode will CLEAR ALL save data (progress, credits, unlocks). Continue?')) return;
+        this.settings.debugMode = false;
+        this.save();
+        localStorage.removeItem('phly-economy');
+        localStorage.removeItem('phly-upgrades');
+        localStorage.removeItem('phly-progress');
+        window.location.reload();
+      } else {
+        // Turning ON debug mode
+        this.settings.debugMode = true;
+        this.save();
+        this.syncUI();
+      }
+    }, true); // capture phase to fire before the generic handler
+
+    // Show warning hint when debug mode is on
+    if (this.settings.debugMode) hint.style.display = 'block';
   }
 
   private bindDebugButtons(): void {
@@ -381,6 +517,10 @@ export class SettingsUI {
     const debugSliders = this.container.querySelector('#debug-sliders') as HTMLElement;
     if (debugSliders) {
       debugSliders.style.display = this.settings.debugMode ? 'block' : 'none';
+    }
+    const debugHint = this.container.querySelector('#debug-hint') as HTMLElement;
+    if (debugHint) {
+      debugHint.style.display = this.settings.debugMode ? 'block' : 'none';
     }
   }
 

@@ -560,6 +560,10 @@ export class HUD {
     };
   }
 
+  setVisible(visible: boolean): void {
+    this.container.style.display = visible ? 'block' : 'none';
+  }
+
   update(state: GameState, camera: THREE.Camera): void {
     const player = state.player;
     const combat = state.combat;

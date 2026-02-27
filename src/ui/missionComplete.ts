@@ -17,7 +17,7 @@ export class MissionCompleteUI {
     s.id = 'mc-styles';
     s.textContent = `
       #mission-complete-ui{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);
-        color:#fff;font-family:'Courier New',monospace;z-index:860;display:none;
+        color:#fff;font-family:'Courier New',monospace;z-index:910;display:none;
         flex-direction:column;align-items:center;justify-content:center;padding:30px;}
       #mission-complete-ui.open{display:flex;}
       .mc-result{font-size:36px;font-weight:bold;letter-spacing:6px;margin-bottom:8px;}

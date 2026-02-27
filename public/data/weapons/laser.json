@@ -1,0 +1,14 @@
+{
+  "id": "laser",
+  "name": "Directed Energy Weapon",
+  "type": "gun",
+  "bulletSpeed": 2000,
+  "bulletMaxAge": 0.8,
+  "fireRate": 20,
+  "damage": 4,
+  "spread": 0.001,
+  "ammo": -1,
+  "poolSize": 40,
+  "price": 8000,
+  "model": null
+}

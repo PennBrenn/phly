@@ -1,0 +1,14 @@
+{
+  "id": "gatling",
+  "name": "GAU-8 Gatling",
+  "type": "gun",
+  "bulletSpeed": 1000,
+  "bulletMaxAge": 1.8,
+  "fireRate": 30,
+  "damage": 5,
+  "spread": 0.012,
+  "ammo": -1,
+  "poolSize": 60,
+  "price": 2000,
+  "model": null
+}

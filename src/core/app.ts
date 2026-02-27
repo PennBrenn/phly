@@ -12,6 +12,7 @@ import type { Difficulty } from '@/state/combatState';
 import { InputManager } from '@/input/inputManager';
 import { createScene, createLights, createTerrain } from '@/rendering/sceneSetup';
 import { createTerrainProps } from '@/rendering/terrainProps';
+import { setTerrainSeed } from '@/utils/terrain';
 import { PlayerMesh } from '@/rendering/playerMesh';
 import { CameraController } from '@/rendering/cameras';
 import { HUD } from '@/rendering/hud/hud';
@@ -125,7 +126,8 @@ export class App {
     document.getElementById('app')!.appendChild(this.canvas);
     this.canvas.focus();
 
-    // Scene
+    // Scene — random seed each session for varied menu backgrounds
+    setTerrainSeed(Math.floor(Math.random() * 999999));
     this.scene = createScene();
     const { sun } = createLights(this.scene, this.settings.shadows);
     this.sun = sun;
@@ -149,6 +151,10 @@ export class App {
     // Post-processing
     this.postProcessing = new PostProcessing(this.renderer, this.scene, this.cameraController.camera);
     this.postProcessing.setBloomEnabled(this.settings.bloom);
+    this.postProcessing.setGodRaysEnabled(this.settings.godRays);
+    this.postProcessing.setChromaticAberrationEnabled(this.settings.chromaticAberration);
+    this.postProcessing.setVignetteEnabled(this.settings.vignette);
+    this.postProcessing.setFXAAEnabled(this.settings.fxaa);
 
     // Combat renderer & vignette
     this.combatRenderer = new CombatRenderer(this.scene);
@@ -302,6 +308,7 @@ export class App {
 
     loadingScreen.hide();
     this.started = true;
+    console.debug('[Debug][App] Initialization complete');
 
     // Main menu: Singleplayer → Level Select, Loadout → Hangar, Multiplayer → MP Menu
     this.mainMenu = new MainMenu(() => {
@@ -318,6 +325,7 @@ export class App {
     const pu = this.upgrades.planes.find(p => p.planeId === planeId);
     if (!pu || pu.unlocked) return;
     if (this.economy.credits < pu.purchasePrice) return;
+    console.debug('[Debug][App] Purchasing plane:', planeId, 'cost:', pu.purchasePrice);
     this.economy.credits -= pu.purchasePrice;
     pu.unlocked = true;
     saveEconomy(this.economy);
@@ -330,6 +338,7 @@ export class App {
     const wu = this.upgrades.weapons.find(w => w.weaponId === weaponId);
     if (!wu || wu.unlocked) return;
     if (this.economy.credits < wu.purchasePrice) return;
+    console.debug('[Debug][App] Purchasing weapon:', weaponId, 'cost:', wu.purchasePrice);
     this.economy.credits -= wu.purchasePrice;
     wu.unlocked = true;
     saveEconomy(this.economy);
@@ -410,6 +419,7 @@ export class App {
       saveProgress(this.progress);
 
       // Start the game
+      console.debug('[Debug][App] Starting mission:', missionId, 'plane:', planeId);
       this.gameStarted = true;
       this.playerMesh.group.visible = true;
       if (this.remotePlayerMesh) this.remotePlayerMesh.group.visible = true;
@@ -435,6 +445,7 @@ export class App {
 
   private completeMission(won: boolean): void {
     if (!this.activeMission) return;
+    console.debug('[Debug][App] Mission complete:', this.activeMission.id, 'won:', won);
     const mission = this.activeMission;
     this.gameStarted = false;
     this.syncTimer.stop();
@@ -689,11 +700,16 @@ export class App {
   }
 
   private applySettings(s: Settings): void {
+    console.debug('[Debug][App] Applying settings update');
     this.settings = s;
     saveSettings(s);
     this.renderer.shadowMap.enabled = s.shadows;
     this.sun.castShadow = s.shadows;
     this.postProcessing.setBloomEnabled(s.bloom);
+    this.postProcessing.setGodRaysEnabled(s.godRays);
+    this.postProcessing.setChromaticAberrationEnabled(s.chromaticAberration);
+    this.postProcessing.setVignetteEnabled(s.vignette);
+    this.postProcessing.setFXAAEnabled(s.fxaa);
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.density = s.fogDensity;
     }
@@ -862,7 +878,10 @@ export class App {
     }
 
     if (this.gameStarted) {
+      this.hud.setVisible(true);
       this.hud.update(this.state, this.cameraController.camera);
+    } else {
+      this.hud.setVisible(false);
     }
 
     this.postProcessing.updateSunPosition(this.sun.position);

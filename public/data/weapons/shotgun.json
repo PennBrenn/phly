@@ -1,0 +1,14 @@
+{
+  "id": "shotgun",
+  "name": "Aerial Shotgun",
+  "type": "gun",
+  "bulletSpeed": 600,
+  "bulletMaxAge": 1.2,
+  "fireRate": 3,
+  "damage": 30,
+  "spread": 0.04,
+  "ammo": 24,
+  "poolSize": 30,
+  "price": 1500,
+  "model": null
+}
