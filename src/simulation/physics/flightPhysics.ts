@@ -65,7 +65,7 @@ const MAX_SPEED        = 380;
 const MAX_SPEED_AB     = 440;
 // Stall is based on FORWARD speed (nose-aligned velocity), not total speed.
 // This means tight turns that bleed lateral speed don't falsely trigger stall.
-const STALL_SPEED      = 55;    // m/s forward — below this lift fades out
+const STALL_SPEED      = 14;    // m/s forward — below this lift fades out (25% of old 55)
 const STALL_WARN_MULT  = 1.15;  // warning fires at STALL_SPEED * this
 const GROUND_CLEARANCE = 3;
 const CRASH_SPEED      = 25;
@@ -88,10 +88,13 @@ const ROLL_DAMPING  = 0.88;
 
 const CONTROL_SMOOTH = 8.0; // input lerp speed
 
-// Velocity alignment — gently nudges the velocity vector toward the nose.
-// Not a stability restoring force; just removes the "flying sideways" feel
-// without fighting the player's inputs. Scale it down to be very subtle.
-const VEL_ALIGN_STRENGTH = 1.8; // m/s² per radian of misalignment
+// Velocity alignment — aggressively snaps the velocity vector toward the nose.
+// This is the primary anti-momentum mechanic: sharp turns should redirect
+// the plane immediately, not carry old velocity. Higher = snappier turns.
+const VEL_ALIGN_STRENGTH = 18.0; // was 1.8 — 10x stronger snap-to-nose
+
+// Extra lateral/vertical drag multiplier — kills sideways momentum fast
+const CROSS_DRAG_SCALE = 6.0;
 
 export function updateFlightPhysics(state: GameState): void {
   const dt = state.time.delta;
@@ -183,22 +186,25 @@ export function updateFlightPhysics(state: GameState): void {
     ? vec3Scale(vec3Normalize(player.velocity), -CD * qBar * WING_AREA)
     : { x: 0, y: 0, z: 0 } as Vec3;
 
-  // ─── Velocity alignment (subtle — smooths out sideslip feel) ──────────────
-  // Pushes velocity vector toward the nose direction, proportional to misalignment.
-  // Purely a feel improvement; not a restoring/stability moment.
+  // ─── Velocity snap + cross-drag (kills momentum carry on sharp turns) ────────
+  // Two mechanisms working together:
+  // 1. Alignment force: pushes velocity toward the nose direction
+  // 2. Cross drag: extra drag on velocity components perpendicular to the nose
+  // Together they make sharp turns redirect the plane instead of carrying momentum.
   let alignForce: Vec3 = { x: 0, y: 0, z: 0 };
-  if (speed > 20) {
+  if (speed > 5) {
     const velNorm   = vec3Normalize(player.velocity);
-    const alignment = vec3Dot(velNorm, fwd); // 1 = perfectly aligned
-    const sideSlip  = Math.acos(clamp(alignment, -1, 1)); // radians of misalignment
-    if (sideSlip > 0.01) {
-      // Cross product gives the correction direction
-      const corrX = fwd.x - velNorm.x * alignment;
-      const corrY = fwd.y - velNorm.y * alignment;
-      const corrZ = fwd.z - velNorm.z * alignment;
+    const alignment = vec3Dot(velNorm, fwd); // 1 = perfectly aligned, -1 = going backwards
+    const misalign  = Math.acos(clamp(alignment, -1, 1)); // radians off from nose
+
+    // Alignment force — snaps velocity toward nose
+    if (misalign > 0.01) {
+      const corrX   = fwd.x - velNorm.x * alignment;
+      const corrY   = fwd.y - velNorm.y * alignment;
+      const corrZ   = fwd.z - velNorm.z * alignment;
       const corrLen = Math.sqrt(corrX * corrX + corrY * corrY + corrZ * corrZ);
       if (corrLen > 0.001) {
-        const strength = VEL_ALIGN_STRENGTH * sideSlip * stallFactor * MASS;
+        const strength = VEL_ALIGN_STRENGTH * misalign * MASS;
         alignForce = {
           x: corrX / corrLen * strength,
           y: corrY / corrLen * strength,
@@ -206,6 +212,18 @@ export function updateFlightPhysics(state: GameState): void {
         };
       }
     }
+
+    // Cross drag — extra drag on velocity components NOT along the nose axis.
+    // Decompose velocity: v_axial (along nose) + v_cross (perpendicular).
+    // Apply heavy drag only to v_cross so sideways/backwards momentum bleeds fast.
+    const axialSpeed = vec3Dot(player.velocity, fwd);
+    const crossVelX  = player.velocity.x - fwd.x * axialSpeed;
+    const crossVelY  = player.velocity.y - fwd.y * axialSpeed;
+    const crossVelZ  = player.velocity.z - fwd.z * axialSpeed;
+    const crossDragF = qBar * WING_AREA * CD_ZERO * CROSS_DRAG_SCALE;
+    alignForce.x -= crossVelX * crossDragF / MASS * MASS; // keep in force space
+    alignForce.y -= crossVelY * crossDragF / MASS * MASS;
+    alignForce.z -= crossVelZ * crossDragF / MASS * MASS;
   }
 
   // ─── Throttle & Afterburner ────────────────────────────────────────────────
