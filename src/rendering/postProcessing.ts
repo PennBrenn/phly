@@ -13,7 +13,7 @@ const GodRayScreenShader = {
   uniforms: {
     tDiffuse: { value: null },
     uSunScreenPos: { value: new THREE.Vector2(0.5, 0.3) },
-    uIntensity: { value: 0.12 },
+    uIntensity: { value: 0.005 },
     uDecay: { value: 0.96 },
     uDensity: { value: 0.8 },
     uWeight: { value: 0.35 },
