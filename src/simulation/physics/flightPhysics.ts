@@ -19,7 +19,7 @@ import { spawnExplosion } from '@/simulation/combat/collisionSystem';
 // ─── Arcade Aircraft Parameters ──────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 const MASS          = 7000;    // kg
-const MAX_THRUST    = 90000;   // N (flat, no altitude/speed variation)
+const MAX_THRUST    = 20000;   // N (flat, no altitude/speed variation)
 const AB_THRUST_MUL = 1.5;
 const WING_AREA     = 17.3;    // m²
 const GRAVITY       = 9.81;    // m/s²
@@ -61,8 +61,8 @@ function engineThrust(throttle: number, afterburner: boolean, altitude: number):
 }
 
 // ─── Speed / flight limits ───────────────────────────────────────────────────
-const MAX_SPEED        = 380;
-const MAX_SPEED_AB     = 440;
+const MAX_SPEED        = 200;
+const MAX_SPEED_AB     = 400;
 // Stall is based on FORWARD speed (nose-aligned velocity), not total speed.
 // This means tight turns that bleed lateral speed don't falsely trigger stall.
 const STALL_SPEED      = 14;    // m/s forward — below this lift fades out (25% of old 55)
