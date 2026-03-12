@@ -17,7 +17,6 @@ export class InputManager {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     this.keys.add(e.code);
-
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
@@ -53,7 +52,10 @@ export class InputManager {
     input.throttleDown = this.keys.has('KeyF');
 
     // Fire gun: Space bar
-    input.fireGun = this.keys.has('Space');
+    // Deploy chaff: Space bar (same key — chaff is handled by combat system on its own cooldown)
+    const spaceHeld = this.keys.has('Space');
+    input.fireGun = spaceHeld;
+    input.deployCountermeasure = spaceHeld;
 
     // Fire ordnance: left mouse button (fires selected ordnance slot)
     input.fire = this.mouseDown;
@@ -64,15 +66,12 @@ export class InputManager {
     // Legacy compat
     input.fireMissile = false;
 
-    // Chaff/flare deploy: X
-    input.deployCountermeasure = this.keys.has('KeyX');
-
-    // Afterburner: Left Shift (hold)
+    // Afterburner: Left/Right Shift (hold)
     input.afterburnerToggle = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
 
-    // Weapon slot selection: 1-5
+    // Weapon slot selection: 1–5
     input.selectSlot = 0;
-    if (this.keys.has('Digit1')) input.selectSlot = 1;
+    if (this.keys.has('Digit1'))      input.selectSlot = 1;
     else if (this.keys.has('Digit2')) input.selectSlot = 2;
     else if (this.keys.has('Digit3')) input.selectSlot = 3;
     else if (this.keys.has('Digit4')) input.selectSlot = 4;
