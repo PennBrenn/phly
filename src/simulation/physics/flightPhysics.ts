@@ -63,23 +63,35 @@ function engineThrust(throttle: number, afterburner: boolean, altitude: number):
 // ─── Speed / flight limits ───────────────────────────────────────────────────
 const MAX_SPEED        = 380;
 const MAX_SPEED_AB     = 440;
-const STALL_SPEED      = 40;
+// Stall is based on FORWARD speed (nose-aligned velocity), not total speed.
+// This means tight turns that bleed lateral speed don't falsely trigger stall.
+const STALL_SPEED      = 55;    // m/s forward — below this lift fades out
+const STALL_WARN_MULT  = 1.15;  // warning fires at STALL_SPEED * this
 const GROUND_CLEARANCE = 3;
 const CRASH_SPEED      = 25;
 const RESPAWN_DELAY    = 3.5;
 const RHO_SL           = 1.225;
 
-// ─── Control moments (flat authority — no dynamic pressure scaling) ───────────
+// ─── Control moments ─────────────────────────────────────────────────────────
 const M_ELEVATOR = 120000;
 const M_RUDDER   =  55000;
 const M_AILERON  = 100000;
 
-// Arcade damping — angular velocity bleeds off when input released
-const PITCH_DAMPING = 0.90; // per-frame multiplier at 60fps
+// Control authority scales with forward speed — feel responsive at all speeds,
+// but not twitchy at very low speed. Smooth 0→1 ramp from 0 to FULL_AUTH_SPEED.
+const FULL_AUTH_SPEED = 120; // m/s forward — full authority above this
+
+// Arcade damping — angular velocity bleeds off when input is released
+const PITCH_DAMPING = 0.90; // per-frame multiplier at 60fps equivalent
 const YAW_DAMPING   = 0.88;
 const ROLL_DAMPING  = 0.88;
 
 const CONTROL_SMOOTH = 8.0; // input lerp speed
+
+// Velocity alignment — gently nudges the velocity vector toward the nose.
+// Not a stability restoring force; just removes the "flying sideways" feel
+// without fighting the player's inputs. Scale it down to be very subtle.
+const VEL_ALIGN_STRENGTH = 1.8; // m/s² per radian of misalignment
 
 export function updateFlightPhysics(state: GameState): void {
   const dt = state.time.delta;
@@ -144,11 +156,13 @@ export function updateFlightPhysics(state: GameState): void {
 
   // ─── Angle of attack (lift only, no stability derivatives) ────────────────
   let alpha = 0;
+  let forwardSpeed = speed; // speed projected along nose
   if (speed > 2) {
-    const velNorm = vec3Normalize(player.velocity);
-    const vFwd    = vec3Dot(velNorm, fwd);
-    const vUp     = vec3Dot(velNorm, upDir);
-    alpha = Math.atan2(-vUp, Math.max(vFwd, 0.01));
+    const velNorm  = vec3Normalize(player.velocity);
+    const vFwd     = vec3Dot(velNorm, fwd);
+    const vUp      = vec3Dot(velNorm, upDir);
+    alpha          = Math.atan2(-vUp, Math.max(vFwd, 0.01));
+    forwardSpeed   = Math.max(vec3Dot(player.velocity, fwd), 0); // nose-aligned component
   }
   player.angleOfAttack = alpha;
   player.sideslipAngle = 0;
@@ -157,8 +171,9 @@ export function updateFlightPhysics(state: GameState): void {
   const rho  = RHO_SL * densityRatio(player.position.y);
   const qBar = 0.5 * rho * speed * speed;
 
-  const stallFactor    = clamp(speed / STALL_SPEED, 0, 1);
-  player.isStalling    = speed < STALL_SPEED * 1.1;
+  // Stall based on FORWARD speed — turning hard won't falsely trigger it
+  const stallFactor = clamp(forwardSpeed / STALL_SPEED, 0, 1);
+  player.isStalling = forwardSpeed < STALL_SPEED * STALL_WARN_MULT;
 
   const CL = liftCoefficient(alpha) * stallFactor * stallFactor;
   const CD = dragCoefficient(CL);
@@ -167,6 +182,31 @@ export function updateFlightPhysics(state: GameState): void {
   const dragForce = speed > 0.5
     ? vec3Scale(vec3Normalize(player.velocity), -CD * qBar * WING_AREA)
     : { x: 0, y: 0, z: 0 } as Vec3;
+
+  // ─── Velocity alignment (subtle — smooths out sideslip feel) ──────────────
+  // Pushes velocity vector toward the nose direction, proportional to misalignment.
+  // Purely a feel improvement; not a restoring/stability moment.
+  let alignForce: Vec3 = { x: 0, y: 0, z: 0 };
+  if (speed > 20) {
+    const velNorm   = vec3Normalize(player.velocity);
+    const alignment = vec3Dot(velNorm, fwd); // 1 = perfectly aligned
+    const sideSlip  = Math.acos(clamp(alignment, -1, 1)); // radians of misalignment
+    if (sideSlip > 0.01) {
+      // Cross product gives the correction direction
+      const corrX = fwd.x - velNorm.x * alignment;
+      const corrY = fwd.y - velNorm.y * alignment;
+      const corrZ = fwd.z - velNorm.z * alignment;
+      const corrLen = Math.sqrt(corrX * corrX + corrY * corrY + corrZ * corrZ);
+      if (corrLen > 0.001) {
+        const strength = VEL_ALIGN_STRENGTH * sideSlip * stallFactor * MASS;
+        alignForce = {
+          x: corrX / corrLen * strength,
+          y: corrY / corrLen * strength,
+          z: corrZ / corrLen * strength,
+        };
+      }
+    }
+  }
 
   // ─── Throttle & Afterburner ────────────────────────────────────────────────
   if (input.throttleUp)   player.throttle = clamp(player.throttle + THROTTLE_RATE * dt, 0, 1);
@@ -188,7 +228,7 @@ export function updateFlightPhysics(state: GameState): void {
   const weight: Vec3 = { x: 0, y: -MASS * GRAVITY, z: 0 };
 
   // ─── Sum forces → velocity ─────────────────────────────────────────────────
-  const totalForce = vec3Add(vec3Add(vec3Add(thrustForce, liftForce), dragForce), weight);
+  const totalForce = vec3Add(vec3Add(vec3Add(vec3Add(thrustForce, liftForce), dragForce), weight), alignForce);
   const accel      = vec3Scale(totalForce, 1 / MASS);
   player.velocity  = vec3Add(player.velocity, vec3Scale(accel, dt));
   player.gForce    = 1 + vec3Dot(accel, upDir) / GRAVITY;
@@ -225,9 +265,13 @@ export function updateFlightPhysics(state: GameState): void {
   // ─── Angular velocity from torque ─────────────────────────────────────────
   const omega = player.angularVelocity;
 
-  omega.x += (cd.x * M_ELEVATOR / Iyy) * dt;
-  omega.y += (cd.y * M_RUDDER   / Izz) * dt;
-  omega.z += (cd.z * M_AILERON  / Ixx) * dt;
+  // Authority ramps up with forward speed — prevents twitchy low-speed controls
+  // while still giving full response once airborne and moving.
+  const authFactor = clamp(forwardSpeed / FULL_AUTH_SPEED, 0.15, 1.0);
+
+  omega.x += (cd.x * M_ELEVATOR / Iyy) * dt * authFactor;
+  omega.y += (cd.y * M_RUDDER   / Izz) * dt * authFactor;
+  omega.z += (cd.z * M_AILERON  / Ixx) * dt * authFactor;
 
   // Damping — bleeds off rotation naturally, snappy arcade feel
   omega.x *= Math.pow(PITCH_DAMPING, dt * 60);
